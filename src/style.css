@@ -1,30 +1,294 @@
-/* Placeholder - Phase 4 replaces with full styling */
+/* Voice Transcription — Dark Theme Styles */
+
 * {
-  box-sizing: border-box;
-  margin: 0;
-  padding: 0;
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+:root {
+    --bg-primary: #111214;
+    --bg-secondary: #1a1d21;
+    --bg-tertiary: #22262b;
+    --border-color: #2e343c;
+    --text-primary: #e8eaed;
+    --text-secondary: #9aa0a9;
+    --text-muted: #5f6670;
+    --accent: #3b82f6;
+    --accent-hover: #60a5fa;
+    --green: #22c55e;
+    --orange: #f59e0b;
+    --red: #ef4444;
 }
 
 body {
-  font-family: system-ui, -apple-system, sans-serif;
-  background: #1a1a1a;
-  color: #ffffff;
-  min-height: 100vh;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+    font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    background: var(--bg-primary);
+    color: var(--text-primary);
+    min-height: 100vh;
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
 }
 
-.container {
-  text-align: center;
-  padding: 2rem;
+/* ── Layout ─────────────────────────────────────────────────────── */
+
+.app {
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh;
+    max-width: 480px;
+    margin: 0 auto;
+    padding: 1rem;
 }
 
-h1 {
-  font-size: 1.5rem;
-  margin-bottom: 1rem;
+.app-header {
+    padding: 0.5rem 0 1rem;
+    border-bottom: 1px solid var(--border-color);
+    margin-bottom: 1rem;
 }
 
-#status {
-  color: #888;
+/* ── Header ─────────────────────────────────────────────────────── */
+
+.app-title {
+    font-size: 1.25rem;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-bottom: 0.75rem;
+}
+
+/* ── Status Indicator ───────────────────────────────────────────── */
+
+.status-row {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+}
+
+.status-indicator {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: var(--text-muted);
+    flex-shrink: 0;
+}
+
+.status-idle .status-indicator { background: var(--text-muted); }
+.status-recording .status-indicator {
+    background: var(--green);
+    animation: pulse 1.5s ease-in-out infinite;
+}
+.status-processing .status-indicator {
+    background: var(--orange);
+    animation: pulse 0.75s ease-in-out infinite;
+}
+.status-error .status-indicator { background: var(--red); }
+
+@keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.4; }
+}
+
+.status-label {
+    font-size: 0.875rem;
+    color: var(--text-secondary);
+}
+
+/* ── Settings Section ───────────────────────────────────────────── */
+
+.settings-section {
+    margin-bottom: 1rem;
+}
+
+.setting-row {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    padding: 0.5rem 0;
+    border-bottom: 1px solid var(--border-color);
+    gap: 0.75rem;
+}
+
+.setting-row:last-child {
+    border-bottom: none;
+}
+
+.setting-label {
+    font-size: 0.8125rem;
+    color: var(--text-muted);
+    min-width: 70px;
+    flex-shrink: 0;
+}
+
+.setting-value {
+    font-size: 0.875rem;
+    color: var(--text-primary);
+    word-break: break-all;
+    flex: 1;
+    text-align: right;
+}
+
+.setting-btn {
+    font-size: 0.75rem;
+    color: var(--accent);
+    background: none;
+    border: 1px solid var(--accent);
+    padding: 0.125rem 0.5rem;
+    border-radius: 4px;
+    cursor: pointer;
+    flex-shrink: 0;
+    transition: background 0.15s, color 0.15s;
+}
+
+.setting-btn:hover {
+    background: var(--accent);
+    color: #fff;
+}
+
+/* Inline edit input */
+.setting-edit {
+    display: none;
+    flex: 1;
+    gap: 0.375rem;
+    justify-content: flex-end;
+}
+
+.setting-edit.active {
+    display: flex;
+}
+
+.setting-edit input {
+    font-size: 0.875rem;
+    background: var(--bg-tertiary);
+    border: 1px solid var(--accent);
+    color: var(--text-primary);
+    padding: 0.125rem 0.375rem;
+    border-radius: 4px;
+    width: 100%;
+    max-width: 200px;
+}
+
+.setting-edit .save-btn,
+.setting-edit .cancel-btn {
+    font-size: 0.75rem;
+    padding: 0.125rem 0.375rem;
+    border-radius: 4px;
+    cursor: pointer;
+    border: none;
+}
+
+.setting-edit .save-btn {
+    background: var(--accent);
+    color: #fff;
+}
+
+.setting-edit .cancel-btn {
+    background: var(--bg-tertiary);
+    color: var(--text-secondary);
+}
+
+/* ── Divider ─────────────────────────────────────────────────────── */
+
+.divider {
+    height: 1px;
+    background: var(--border-color);
+    margin: 1rem 0;
+}
+
+/* ── History Section ────────────────────────────────────────────── */
+
+.history-section {
+    flex: 1;
+}
+
+.section-title {
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--text-muted);
+    margin-bottom: 0.5rem;
+}
+
+.history-list {
+    list-style: none;
+    max-height: 300px;
+    overflow-y: auto;
+}
+
+.history-item {
+    display: flex;
+    flex-direction: column;
+    padding: 0.625rem 0;
+    border-bottom: 1px solid var(--border-color);
+    gap: 0.25rem;
+}
+
+.history-item:last-child {
+    border-bottom: none;
+}
+
+.history-text {
+    font-size: 0.875rem;
+    color: var(--text-primary);
+    line-height: 1.4;
+}
+
+.history-meta {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+}
+
+.empty-state {
+    font-size: 0.875rem;
+    color: var(--text-muted);
+    padding: 1rem 0;
+    text-align: center;
+}
+
+/* ── Error Banner ───────────────────────────────────────────────── */
+
+.error-banner {
+    display: none;
+    background: var(--bg-secondary);
+    border: 1px solid var(--red);
+    border-radius: 6px;
+    padding: 0.75rem 1rem;
+    margin-top: 1rem;
+    font-size: 0.875rem;
+    color: var(--text-primary);
+    line-height: 1.4;
+}
+
+.error-banner a {
+    color: var(--accent-hover);
+}
+
+.error-banner p {
+    margin-top: 0.5rem;
+    color: var(--text-secondary);
+}
+
+/* ── Scrollbar ──────────────────────────────────────────────────── */
+
+.history-list::-webkit-scrollbar {
+    width: 6px;
+}
+
+.history-list::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.history-list::-webkit-scrollbar-thumb {
+    background: var(--border-color);
+    border-radius: 3px;
+}
+
+/* ── Transitions ────────────────────────────────────────────────── */
+
+.status-indicator,
+.status-label,
+.error-banner,
+.history-item {
+    transition: all 0.2s ease;
 }
