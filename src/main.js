@@ -1,311 +1,432 @@
 /**
- * Voice Transcription — Main JavaScript
- * 
- * Tauri API v2 (jsdelivr CDN):
- * https://cdn.jsdelivr.net/npm/@tauri-apps/api@2/dist/tauri.min.js
+ * Voice Transcription UI
+ *
+ * Tauri API is loaded from src/vendor/tauri.js.
  */
 
 const { invoke } = window.__TAURI__.core;
 const { listen } = window.__TAURI__.event;
 
-// ── State ───────────────────────────────────────────────────────────────────
-
 let settings = null;
 let transcriptions = [];
 let currentError = null;
-
-// ── Init ────────────────────────────────────────────────────────────────────
+let modelDownloadInfo = null;
 
 async function init() {
-    showStatus('loading', 'Loading…');
+    showStatus("loading", "Loading", "Initializing");
 
     try {
-        // Load settings + history in parallel
         const [settingsData, historyData, statusData] = await Promise.all([
-            invoke('get_settings'),
-            invoke('get_transcription_history'),
-            invoke('get_status'),
+            invoke("get_settings"),
+            invoke("get_transcription_history"),
+            invoke("get_status"),
         ]);
 
         settings = settingsData;
         transcriptions = historyData.transcriptions || [];
+
         updateSettingsUI(settings);
         updateHistoryUI(transcriptions);
-        showStatus(statusData.state.toLowerCase(), getStateLabel(statusData.state));
 
-        // Check for model not found on load
-        if (!settings.model_path || !fileExists(settings.model_path)) {
-            showError('model', 'Model not found. <a href="https://huggingface.co/ggerganov/whisper.cpp/tree/main" target="_blank">Download ggml-base.en.bin</a> and place it at the path shown above.');
+        const statusState = (statusData.state || "Idle").toLowerCase();
+        showStatus(statusState, getStateLabel(statusData.state), getStateDescription(statusState));
+
+        if (statusData.last_error) {
+            showError("transcription", statusData.last_error);
         }
+
+        if (!settings.model_path) {
+            showError(
+                "model",
+                'Model path is empty. <a href="https://huggingface.co/ggerganov/whisper.cpp/tree/main" target="_blank">Download ggml-base.en.bin</a> and configure the local path.',
+            );
+        }
+
+        await loadModelDownloadInfo();
     } catch (err) {
-        console.error('Init error:', err);
-        showStatus('error', 'Failed to load');
+        console.error("Init error:", err);
+        showStatus("error", "Unavailable", "Failed to load");
+        showError("settings", `Failed to load application state: ${err}`);
     }
 
-    // Set up event listeners
     await setupEventListeners();
 }
 
-// ── Event Listeners ─────────────────────────────────────────────────────────
+async function loadModelDownloadInfo() {
+    try {
+        modelDownloadInfo = await invoke("get_default_model_download_info");
+        updateModelDownloadUI(modelDownloadInfo);
+    } catch (err) {
+        console.error("Failed to load model download info:", err);
+    }
+}
 
 async function setupEventListeners() {
     const events = [
-        { name: 'recording-started', handler: onRecordingStarted },
-        { name: 'recording-stopped', handler: onRecordingStopped },
-        { name: 'transcription-complete', handler: onTranscriptionComplete },
-        { name: 'transcription-error', handler: onTranscriptionError },
-        { name: 'hotkey-conflict', handler: onHotkeyConflict },
+        { name: "recording-started", handler: onRecordingStarted },
+        { name: "recording-stopped", handler: onRecordingStopped },
+        { name: "transcription-complete", handler: onTranscriptionComplete },
+        { name: "transcription-error", handler: onTranscriptionError },
+        { name: "hotkey-conflict", handler: onHotkeyConflict },
     ];
 
     for (const { name, handler } of events) {
         try {
             await listen(name, (event) => handler(event.payload || {}));
-            console.log('Listening for:', name);
         } catch (err) {
-            console.error('Failed to listen for', name, err);
+            console.error("Failed to listen for", name, err);
         }
     }
 }
 
-// ── Event Handlers ─────────────────────────────────────────────────────────
-
 function onRecordingStarted() {
-    showStatus('recording', 'Recording…');
+    showStatus("recording", "Recording", "Listening for speech");
     clearError();
 }
 
 function onRecordingStopped(payload) {
-    showStatus('processing', `Processing (${payload.duration_ms}ms)…`);
+    const duration = payload.duration_ms ? `${payload.duration_ms} ms capture` : "Preparing audio";
+    showStatus("processing", "Processing", duration);
 }
 
 function onTranscriptionComplete(payload) {
-    showStatus('idle', 'Idle');
+    showStatus("idle", "Ready", "Awaiting shortcut");
     clearError();
 
-    // Add to history
     const item = {
         id: generateId(),
         text: payload.text,
         duration_ms: payload.duration_ms || 0,
         created_at: new Date().toISOString(),
     };
+
     transcriptions.unshift(item);
-
-    // Keep max 10
-    if (transcriptions.length > 10) {
-        transcriptions = transcriptions.slice(0, 10);
-    }
-
+    transcriptions = transcriptions.slice(0, 10);
     updateHistoryUI(transcriptions);
 }
 
 function onTranscriptionError(payload) {
-    showStatus('error', payload.error || 'Transcription failed');
-    clearError();
-    showError('transcription', payload.error || 'Transcription failed');
+    const message = payload.error || "Transcription failed";
+    showStatus("error", "Attention required", "Review the latest error");
+    showError("transcription", message);
 }
 
 function onHotkeyConflict(payload) {
-    showError('hotkey', `Hotkey conflict: ${payload.hotkey} is already in use. Please choose a different hotkey.`);
+    showStatus("error", "Hotkey conflict", "Shortcut update failed");
+    showError("hotkey", `Hotkey conflict: ${payload.hotkey} is already in use.`);
 }
 
-// ── UI Updates ──────────────────────────────────────────────────────────────
+function showStatus(state, label, detail) {
+    const panel = document.getElementById("status-panel");
+    const badge = document.getElementById("status-badge");
+    const text = document.getElementById("status-text");
+    const chip = document.getElementById("status-chip");
+    const mode = document.getElementById("status-mode");
 
-function showStatus(state, label) {
-    const statusEl = document.getElementById('status');
-    const statusTextEl = document.getElementById('status-text');
-    if (!statusEl || !statusTextEl) return;
+    document.body.classList.remove("status-loading", "status-idle", "status-recording", "status-processing", "status-error");
+    document.body.classList.add(`status-${state}`);
 
-    // Update indicator dot color
-    statusEl.className = `status-indicator status-${state}`;
-
-    // Update label
-    statusTextEl.textContent = label;
+    if (panel) panel.dataset.state = state;
+    if (badge) badge.dataset.state = state;
+    if (text) text.textContent = label;
+    if (chip) chip.textContent = detail;
+    if (mode) mode.textContent = label;
 }
 
 function getStateLabel(state) {
-    switch (state.toLowerCase()) {
-        case 'idle': return 'Idle';
-        case 'recording': return 'Recording…';
-        case 'processing': return 'Processing…';
-        case 'error': return 'Error';
-        default: return state;
+    switch ((state || "").toLowerCase()) {
+        case "idle":
+            return "Ready";
+        case "recording":
+            return "Recording";
+        case "processing":
+            return "Processing";
+        case "error":
+            return "Attention required";
+        default:
+            return state || "Loading";
     }
 }
 
-function updateSettingsUI(s) {
-    const hotkeyEl = document.getElementById('hotkey-value');
-    const modelNameEl = document.getElementById('model-name');
-    const modelPathEl = document.getElementById('model-path');
+function getStateDescription(state) {
+    switch (state) {
+        case "idle":
+            return "Awaiting shortcut";
+        case "recording":
+            return "Listening for speech";
+        case "processing":
+            return "Transcribing locally";
+        case "error":
+            return "Review the latest error";
+        default:
+            return "Initializing";
+    }
+}
 
-    if (hotkeyEl) hotkeyEl.textContent = s.hotkey;
-    if (modelNameEl) modelNameEl.textContent = s.model_name;
-    if (modelPathEl) modelPathEl.textContent = s.model_path;
+function updateSettingsUI(nextSettings) {
+    const hotkeyEl = document.getElementById("hotkey-value");
+    const modelNameEl = document.getElementById("model-name");
+    const modelPathEl = document.getElementById("model-path");
+    const hotkeyInput = document.getElementById("hotkey-input");
+    const modelInput = document.getElementById("model-input");
+
+    if (hotkeyEl) hotkeyEl.textContent = nextSettings.hotkey || "--";
+    if (modelNameEl) modelNameEl.textContent = nextSettings.model_name || "--";
+    if (modelPathEl) modelPathEl.textContent = nextSettings.model_path || "--";
+    if (hotkeyInput) hotkeyInput.value = nextSettings.hotkey || "";
+    if (modelInput) modelInput.value = nextSettings.model_path || "";
+}
+
+function updateModelDownloadUI(info) {
+    const metaEl = document.getElementById("model-download-meta");
+    const buttonEl = document.getElementById("download-model-btn");
+    if (!metaEl || !buttonEl || !info) return;
+
+    const installedLabel = info.installed ? "Installed at target path." : "Not installed at target path.";
+    metaEl.textContent = `${info.model_name} · ${info.size_label} · ${installedLabel}`;
+    buttonEl.textContent = info.installed ? "Re-download base.en" : "Download base.en";
+    buttonEl.disabled = false;
 }
 
 function updateHistoryUI(items) {
-    const listEl = document.getElementById('history-list');
+    const listEl = document.getElementById("history-list");
+    const countEl = document.getElementById("history-count");
     if (!listEl) return;
 
+    if (countEl) countEl.textContent = String(items?.length || 0);
+
     if (!items || items.length === 0) {
-        listEl.innerHTML = '<p class="empty-state">No transcriptions yet. Hold the hotkey to start.</p>';
+        listEl.innerHTML = `
+            <li class="empty-state">
+              <span class="empty-title">No transcriptions yet</span>
+              <span class="empty-copy">Hold the hotkey and start speaking.</span>
+            </li>
+        `;
         return;
     }
 
-    listEl.innerHTML = items.map(item => {
-        const text = item.text.length > 80 ? item.text.slice(0, 80) + '…' : item.text;
-        const time = relativeTime(item.created_at);
-        return `<li class="history-item">
-            <span class="history-text">"${escapeHtml(text)}"</span>
-            <span class="history-meta">${time} · ${item.duration_ms}ms</span>
-        </li>`;
-    }).join('');
+    listEl.innerHTML = items
+        .map((item) => {
+            const text = item.text.length > 120 ? `${item.text.slice(0, 120)}…` : item.text;
+            const time = relativeTime(item.created_at);
+            return `
+                <li class="history-item">
+                  <span class="history-text">${escapeHtml(text)}</span>
+                  <span class="history-meta">${time} · ${item.duration_ms} ms</span>
+                </li>
+            `;
+        })
+        .join("");
 }
-
-// ── Error Banner ─────────────────────────────────────────────────────────────
 
 function showError(type, message) {
     currentError = { type, message };
-    const banner = document.getElementById('error-banner');
+    const banner = document.getElementById("error-banner");
     if (!banner) return;
 
-    let extraContent = '';
-    if (type === 'model') {
-        // HTML in message is expected
-    } else if (type === 'mic') {
-        extraContent = '<p>Check microphone permissions in system settings.</p>';
-    } else if (type === 'hotkey') {
-        extraContent = '<p>Try a different hotkey combination.</p>';
+    let extraContent = "";
+    if (type === "model") {
+        extraContent = "<p>Place the model locally and point the app at the correct file.</p>";
+    } else if (type === "hotkey") {
+        extraContent = "<p>Choose a shortcut that is not already claimed by the desktop session.</p>";
+    } else if (type === "transcription") {
+        extraContent = "<p>The last request did not complete successfully.</p>";
+    } else if (type === "settings") {
+        extraContent = "<p>Reload the window if the state looks out of sync.</p>";
     }
 
-    banner.innerHTML = `<strong>Error:</strong> ${message}${extraContent}`;
-    banner.style.display = 'block';
+    banner.innerHTML = `<strong>System notice</strong>${message}${extraContent}`;
+    banner.style.display = "block";
 }
 
 function clearError() {
     currentError = null;
-    const banner = document.getElementById('error-banner');
-    if (banner) banner.style.display = 'none';
+    const banner = document.getElementById("error-banner");
+    if (banner) banner.style.display = "none";
 }
-
-// ── Settings Updates ─────────────────────────────────────────────────────────
 
 async function updateHotkey(newHotkey) {
     try {
-        const result = await invoke('update_settings', {
-            request: { hotkey: newHotkey }
+        const result = await invoke("update_settings", {
+            request: { hotkey: newHotkey },
         });
 
-        if (result.requires_restart) {
-            showError('restart', 'Restart required to apply hotkey change.');
-        } else {
-            settings.hotkey = newHotkey;
+        if (result.success === false) {
+            showError("hotkey", result.message || "Hotkey update failed.");
+            showStatus("error", "Hotkey conflict", "Shortcut update failed");
             updateSettingsUI(settings);
-            clearError();
-            showStatus('idle', 'Idle');
+            return;
         }
+
+        if (result.requires_restart) {
+            showError("settings", "Restart required to apply the hotkey change.");
+            showStatus("error", "Restart required", "Hotkey update incomplete");
+            return;
+        }
+
+        settings.hotkey = newHotkey;
+        updateSettingsUI(settings);
+        clearError();
+        showStatus("idle", "Ready", "Awaiting shortcut");
     } catch (err) {
-        showError('settings', `Failed to update hotkey: ${err}`);
+        showError("settings", `Failed to update hotkey: ${err}`);
+        showStatus("error", "Settings error", "Unable to save hotkey");
     }
 }
 
 async function updateModelPath(newPath) {
     try {
-        const result = await invoke('update_settings', {
-            request: { model_path: newPath }
+        const result = await invoke("update_settings", {
+            request: { model_path: newPath },
         });
+
+        if (result.success === false) {
+            showError("model", result.message || "Model path update failed.");
+            showStatus("error", "Model error", "Unable to save path");
+            updateSettingsUI(settings);
+            return;
+        }
+
+        if (result.requires_restart) {
+            showError("settings", "Restart required to apply the model change.");
+            showStatus("error", "Restart required", "Model update incomplete");
+            return;
+        }
 
         settings.model_path = newPath;
         updateSettingsUI(settings);
         clearError();
-        showStatus('idle', 'Idle');
+        showStatus("idle", "Ready", "Awaiting shortcut");
     } catch (err) {
-        showError('model', `Failed to update model path: ${err}`);
+        showError("model", `Failed to update model path: ${err}`);
+        showStatus("error", "Model error", "Unable to save path");
     }
 }
 
-// ── Helpers ──────────────────────────────────────────────────────────────────
+async function confirmModelDownload() {
+    if (!modelDownloadInfo) {
+        await loadModelDownloadInfo();
+    }
+
+    if (!modelDownloadInfo) {
+        showError("model", "Model download metadata is unavailable.");
+        return;
+    }
+
+    const confirmed = window.confirm(
+        [
+            `Download ${modelDownloadInfo.model_name}?`,
+            "",
+            `Size: ${modelDownloadInfo.size_label}`,
+            `Destination: ${modelDownloadInfo.destination_path}`,
+            "",
+            "This will download the model into the app data directory and set it as the active model path.",
+        ].join("\n"),
+    );
+
+    if (!confirmed) {
+        return;
+    }
+
+    const buttonEl = document.getElementById("download-model-btn");
+    if (buttonEl) {
+        buttonEl.disabled = true;
+        buttonEl.textContent = "Downloading...";
+    }
+
+    showStatus("processing", "Downloading model", modelDownloadInfo.size_label);
+    clearError();
+
+    try {
+        const result = await invoke("download_default_model");
+        settings.model_name = result.model_name;
+        settings.model_path = result.model_path;
+        updateSettingsUI(settings);
+        showStatus("idle", "Ready", "Model installed locally");
+        await loadModelDownloadInfo();
+    } catch (err) {
+        showStatus("error", "Download failed", "Model installation did not complete");
+        showError(
+            "model",
+            `Failed to download the model automatically: ${err}. You can still download it manually from <a href="${modelDownloadInfo.source_url}" target="_blank">the upstream file</a>.`,
+        );
+        if (buttonEl) {
+            buttonEl.disabled = false;
+            buttonEl.textContent = modelDownloadInfo.installed ? "Re-download base.en" : "Download base.en";
+        }
+    }
+}
 
 function relativeTime(isoString) {
     try {
         const diff = (Date.now() - new Date(isoString).getTime()) / 1000;
-        if (diff < 60) return `${Math.floor(diff)}s ago`;
-        if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
-        if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
-        return `${Math.floor(diff / 86400)}d ago`;
+        if (diff < 60) return `${Math.max(1, Math.floor(diff))} sec ago`;
+        if (diff < 3600) return `${Math.floor(diff / 60)} min ago`;
+        if (diff < 86400) return `${Math.floor(diff / 3600)} hr ago`;
+        return `${Math.floor(diff / 86400)} day ago${diff >= 172800 ? "s" : ""}`;
     } catch {
-        return 'unknown';
+        return "unknown";
     }
 }
 
 function generateId() {
-    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
-        const r = Math.random() * 16 | 0;
-        const v = c === 'x' ? r : (r & 0x3 | 0x8);
-        return v.toString(16);
+    return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, (char) => {
+        const random = Math.random() * 16 | 0;
+        const value = char === "x" ? random : (random & 0x3) | 0x8;
+        return value.toString(16);
     });
 }
 
-function escapeHtml(str) {
-    const div = document.createElement('div');
-    div.textContent = str;
+function escapeHtml(value) {
+    const div = document.createElement("div");
+    div.textContent = value;
     return div.innerHTML;
 }
 
-function fileExists(path) {
-    // We can't synchronously check file existence from JS,
-    // but we show the path and trust the Rust error if missing.
-    return path && path.length > 0;
-}
-
-// ── Inline Edit Helpers ────────────────────────────────────────────────────
-
 function showEdit(field) {
-    const valueEl = document.getElementById(field + '-value');
-    const btnEl = valueEl ? valueEl.nextElementSibling : null;
-    if (valueEl) valueEl.style.display = 'none';
-    if (btnEl && btnEl.tagName === 'BUTTON') btnEl.style.display = 'none';
+    const editEl = document.getElementById(`edit-${field}`);
+    const cardEl = document.getElementById(`${field}-card`);
 
-    const editEl = document.getElementById('edit-' + field);
-    if (editEl) {
-        editEl.classList.add('active');
-        const input = editEl.querySelector('input');
-        if (input) { input.focus(); input.select(); }
+    if (editEl) editEl.classList.add("active");
+    if (cardEl) cardEl.classList.add("editing");
+
+    const input = editEl?.querySelector("input");
+    if (input) {
+        input.focus();
+        input.select();
     }
 }
 
 function hideEdit(field) {
-    const editEl = document.getElementById('edit-' + field);
-    if (editEl) editEl.classList.remove('active');
+    const editEl = document.getElementById(`edit-${field}`);
+    const cardEl = document.getElementById(`${field}-card`);
 
-    const valueEl = document.getElementById(field + '-value');
-    const btnEl = valueEl ? valueEl.nextElementSibling : null;
-    if (valueEl) valueEl.style.display = '';
-    if (btnEl && btnEl.tagName === 'BUTTON') btnEl.style.display = '';
+    if (editEl) editEl.classList.remove("active");
+    if (cardEl) cardEl.classList.remove("editing");
 }
 
 function submitHotkey() {
-    const input = document.getElementById('hotkey-input');
-    if (!input || !input.value.trim()) return;
-    hideEdit('hotkey');
-    updateHotkey(input.value.trim());
+    const input = document.getElementById("hotkey-input");
+    const value = input?.value.trim();
+    if (!value) return;
+
+    hideEdit("hotkey");
+    updateHotkey(value);
 }
 
 function submitModelPath() {
-    const input = document.getElementById('model-input');
-    if (!input || !input.value.trim()) return;
-    hideEdit('model');
-    updateModelPath(input.value.trim());
+    const input = document.getElementById("model-input");
+    const value = input?.value.trim();
+    if (!value) return;
+
+    hideEdit("model");
+    updateModelPath(value);
 }
 
-// Expose for inline onclick handlers
 window.showEdit = showEdit;
 window.hideEdit = hideEdit;
 window.submitHotkey = submitHotkey;
 window.submitModelPath = submitModelPath;
-window.updateHotkey = updateHotkey;
-window.updateModelPath = updateModelPath;
+window.confirmModelDownload = confirmModelDownload;
 
-// ── Start ────────────────────────────────────────────────────────────────────
-
-document.addEventListener('DOMContentLoaded', init);
+document.addEventListener("DOMContentLoaded", init);

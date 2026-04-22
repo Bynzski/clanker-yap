@@ -10,6 +10,16 @@ pub struct SettingsResponse {
     pub model_name: String,
 }
 
+/// Information about the built-in model download option.
+#[derive(Debug, Serialize)]
+pub struct ModelDownloadInfoResponse {
+    pub model_name: String,
+    pub size_label: String,
+    pub destination_path: String,
+    pub source_url: String,
+    pub installed: bool,
+}
+
 /// Request for update_settings command.
 #[derive(Debug, Deserialize)]
 pub struct UpdateSettingsRequest {
@@ -24,6 +34,15 @@ pub struct UpdateSettingsResponse {
     pub success: bool,
     pub message: String,
     pub requires_restart: bool,
+}
+
+/// Response for download_default_model command.
+#[derive(Debug, Serialize)]
+pub struct DownloadModelResponse {
+    pub success: bool,
+    pub message: String,
+    pub model_name: String,
+    pub model_path: String,
 }
 
 /// A single transcription history item.

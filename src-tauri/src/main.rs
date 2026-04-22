@@ -42,7 +42,9 @@ fn main() {
         .manage(app_state.clone())
         .invoke_handler(tauri::generate_handler![
             voice_transcribe_lib::presentation::commands::settings_cmds::get_settings,
+            voice_transcribe_lib::presentation::commands::settings_cmds::get_default_model_download_info,
             voice_transcribe_lib::presentation::commands::settings_cmds::update_settings,
+            voice_transcribe_lib::presentation::commands::settings_cmds::download_default_model,
             voice_transcribe_lib::presentation::commands::transcription_cmds::get_transcription_history,
             voice_transcribe_lib::presentation::commands::transcription_cmds::get_status,
         ])

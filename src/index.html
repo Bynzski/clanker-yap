@@ -5,75 +5,159 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Voice Transcription</title>
     <link rel="stylesheet" href="style.css" />
-    <!-- Tauri API v2.10.1 (vanilla JS shim via window.__TAURI__) -->
     <script src="vendor/tauri.js"></script>
   </head>
   <body>
-    <div class="app">
-
-      <!-- ── Header ──────────────────────────────────────────────── -->
-      <header class="app-header">
-        <h1 class="app-title">🎤 Voice Transcription</h1>
-        <div class="status-row" id="status">
-          <div class="status-indicator"></div>
-          <span class="status-label" id="status-text">Loading…</span>
-        </div>
-      </header>
-
-      <!-- ── Settings ───────────────────────────────────────────── -->
-      <section class="settings-section">
-
-        <!-- Hotkey -->
-        <div class="setting-row">
-          <span class="setting-label">Hotkey</span>
-          <span class="setting-value" id="hotkey-value">—</span>
-          <button class="setting-btn" onclick="showEdit('hotkey')">[Change…]</button>
-
-          <!-- Inline edit: hotkey -->
-          <div class="setting-edit" id="edit-hotkey">
-            <input type="text" id="hotkey-input" placeholder="e.g. CmdOrCtrl+Shift+V" />
-            <button class="save-btn" onclick="submitHotkey()">Save</button>
-            <button class="cancel-btn" onclick="hideEdit('hotkey')">Cancel</button>
+    <div class="app-shell">
+      <div class="app-noise" aria-hidden="true"></div>
+      <main class="app">
+        <header class="hero">
+          <div class="hero-copy">
+            <div class="eyebrow">
+              <span class="eyebrow-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" role="img">
+                  <path
+                    d="M12 3a4 4 0 0 0-4 4v5a4 4 0 0 0 8 0V7a4 4 0 0 0-4-4Zm-6 9a1 1 0 1 1 2 0 4 4 0 1 0 8 0 1 1 0 1 1 2 0 5.99 5.99 0 0 1-5 5.91V21h3a1 1 0 1 1 0 2H8a1 1 0 1 1 0-2h3v-3.09A5.99 5.99 0 0 1 6 12Z"
+                  />
+                </svg>
+              </span>
+              Local dictation
+            </div>
+            <h1 class="app-title">Voice Transcription</h1>
+            <p class="hero-text">
+              Hold the shortcut, speak naturally, release to transcribe and paste
+              into the active field.
+            </p>
           </div>
-        </div>
 
-        <!-- Model name -->
-        <div class="setting-row">
-          <span class="setting-label">Model</span>
-          <span class="setting-value" id="model-name">—</span>
-          <span style="width:56px"></span><!-- spacer -->
-        </div>
+          <section class="status-panel" id="status-panel" aria-live="polite">
+            <div class="status-panel-top">
+              <div class="status-badge" id="status-badge">
+                <span class="status-dot" aria-hidden="true"></span>
+                <span id="status-text">Loading</span>
+              </div>
+              <div class="status-chip" id="status-chip">Initializing</div>
+            </div>
+            <div class="status-metrics">
+              <div class="metric-card">
+                <span class="metric-label">Mode</span>
+                <strong class="metric-value" id="status-mode">Loading</strong>
+              </div>
+              <div class="metric-card">
+                <span class="metric-label">Recent Items</span>
+                <strong class="metric-value" id="history-count">0</strong>
+              </div>
+            </div>
+          </section>
+        </header>
 
-        <!-- Model path -->
-        <div class="setting-row">
-          <span class="setting-label">Model path</span>
-          <span class="setting-value" id="model-path">—</span>
-          <button class="setting-btn" onclick="showEdit('model')">[Change…]</button>
-
-          <!-- Inline edit: model path -->
-          <div class="setting-edit" id="edit-model">
-            <input type="text" id="model-input" placeholder="/full/path/to/model.bin" />
-            <button class="save-btn" onclick="submitModelPath()">Save</button>
-            <button class="cancel-btn" onclick="hideEdit('model')">Cancel</button>
+        <section class="panel panel-settings">
+          <div class="panel-heading">
+            <div>
+              <p class="panel-kicker">Configuration</p>
+              <h2>Session settings</h2>
+            </div>
+            <p class="panel-note">Applies to local dictation on this machine.</p>
           </div>
-        </div>
 
-      </section>
+          <div class="settings-grid">
+            <article class="setting-card" id="hotkey-card">
+              <div class="setting-card-head">
+                <div class="setting-icon" aria-hidden="true">
+                  <svg viewBox="0 0 24 24" role="img">
+                    <path
+                      d="M7 4a3 3 0 0 0-3 3v10a3 3 0 0 0 3 3h10a3 3 0 0 0 3-3V7a3 3 0 0 0-3-3H7Zm1 5a1 1 0 1 1 0 2H7a1 1 0 1 1 0-2h1Zm3 0a1 1 0 1 1 0 2h-1a1 1 0 1 1 0-2h1Zm3 0a1 1 0 1 1 0 2h-1a1 1 0 1 1 0-2h1Zm3 0a1 1 0 1 1 0 2h-1a1 1 0 1 1 0-2h1Zm-8 4h8a1 1 0 1 1 0 2H9a1 1 0 1 1 0-2Z"
+                    />
+                  </svg>
+                </div>
+                <div>
+                  <h3>Hotkey</h3>
+                  <p>Push-to-talk shortcut</p>
+                </div>
+                <button class="ghost-button" type="button" onclick="showEdit('hotkey')">
+                  Edit
+                </button>
+              </div>
 
-      <div class="divider"></div>
+              <div class="setting-body">
+                <code class="setting-primary" id="hotkey-value">--</code>
+                <div class="setting-edit" id="edit-hotkey">
+                  <input type="text" id="hotkey-input" placeholder="CmdOrCtrl+Shift+V" />
+                  <div class="setting-actions">
+                    <button class="primary-button" type="button" onclick="submitHotkey()">
+                      Save
+                    </button>
+                    <button class="ghost-button" type="button" onclick="hideEdit('hotkey')">
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </article>
 
-      <!-- ── History ──────────────────────────────────────────────── -->
-      <section class="history-section">
-        <h2 class="section-title">Recent transcriptions</h2>
-        <ul class="history-list" id="history-list">
-          <li class="empty-state">No transcriptions yet. Hold the hotkey to start.</li>
-        </ul>
-      </section>
+            <article class="setting-card setting-card-wide" id="model-card">
+              <div class="setting-card-head">
+                <div class="setting-icon" aria-hidden="true">
+                  <svg viewBox="0 0 24 24" role="img">
+                    <path
+                      d="M10 4a2 2 0 0 0-2 2v2H6a2 2 0 0 0-2 2v7a3 3 0 0 0 3 3h10a3 3 0 0 0 3-3v-7a2 2 0 0 0-2-2h-2V6a2 2 0 0 0-2-2h-4Zm0 4V6h4v2h-4Zm-3 4h10v5a1 1 0 0 1-1 1H8a1 1 0 0 1-1-1v-5Z"
+                    />
+                  </svg>
+                </div>
+                <div>
+                  <h3>Model</h3>
+                  <p>Local Whisper model path</p>
+                </div>
+                <div class="setting-card-controls">
+                  <button class="ghost-button" type="button" id="download-model-btn" onclick="confirmModelDownload()">
+                    Download base.en
+                  </button>
+                  <button class="ghost-button" type="button" onclick="showEdit('model')">
+                    Edit
+                  </button>
+                </div>
+              </div>
 
-      <!-- ── Error Banner ─────────────────────────────────────────── -->
-      <div class="error-banner" id="error-banner"></div>
+              <div class="setting-body">
+                <strong class="setting-primary" id="model-name">--</strong>
+                <p class="setting-secondary" id="model-path">--</p>
+                <p class="setting-tertiary" id="model-download-meta">Default model download unavailable.</p>
+                <div class="setting-edit" id="edit-model">
+                  <input type="text" id="model-input" placeholder="/full/path/to/model.bin" />
+                  <div class="setting-actions">
+                    <button class="primary-button" type="button" onclick="submitModelPath()">
+                      Save
+                    </button>
+                    <button class="ghost-button" type="button" onclick="hideEdit('model')">
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </article>
+          </div>
+        </section>
 
-    </div><!-- .app -->
+        <section class="panel panel-history">
+          <div class="panel-heading">
+            <div>
+              <p class="panel-kicker">History</p>
+              <h2>Recent transcriptions</h2>
+            </div>
+            <p class="panel-note">Newest entries appear first.</p>
+          </div>
+
+          <ul class="history-list" id="history-list">
+            <li class="empty-state">
+              <span class="empty-title">No transcriptions yet</span>
+              <span class="empty-copy">Hold the hotkey and start speaking.</span>
+            </li>
+          </ul>
+        </section>
+
+        <div class="error-banner" id="error-banner" role="alert"></div>
+      </main>
+    </div>
 
     <script src="main.js"></script>
   </body>
