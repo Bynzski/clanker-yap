@@ -3,10 +3,14 @@
 use tauri::{AppHandle, State};
 
 use crate::application::orchestrator;
+use crate::application::use_cases::model_download as model_download_usecase;
 use crate::application::use_cases::settings as settings_usecase;
 use crate::application::AppState;
 use crate::domain::error::{AppError, Result};
-use crate::presentation::dto::{SettingsResponse, UpdateSettingsRequest, UpdateSettingsResponse};
+use crate::presentation::dto::{
+    DownloadModelResponse, ModelDownloadInfoResponse, SettingsResponse, UpdateSettingsRequest,
+    UpdateSettingsResponse,
+};
 
 /// Returns the current settings.
 #[tauri::command]
@@ -16,6 +20,19 @@ pub fn get_settings(state: State<'_, AppState>) -> Result<SettingsResponse> {
         hotkey: settings.hotkey.clone(),
         model_path: settings.model_path.clone(),
         model_name: settings.model_name.clone(),
+    })
+}
+
+/// Returns information about the built-in base.en model download.
+#[tauri::command]
+pub fn get_default_model_download_info() -> Result<ModelDownloadInfoResponse> {
+    let info = model_download_usecase::get_default_model_info()?;
+    Ok(ModelDownloadInfoResponse {
+        model_name: info.model_name,
+        size_label: info.size_label,
+        destination_path: info.destination_path.to_string_lossy().to_string(),
+        source_url: info.source_url,
+        installed: info.installed,
     })
 }
 
@@ -102,5 +119,32 @@ pub fn update_settings(
         success: true,
         message: "Settings updated".into(),
         requires_restart,
+    })
+}
+
+/// Downloads the default model into the application data directory and updates settings.
+#[tauri::command]
+pub async fn download_default_model(state: State<'_, AppState>) -> Result<DownloadModelResponse> {
+    let app_state = state.inner().clone();
+
+    let info = tauri::async_runtime::spawn_blocking(move || {
+        model_download_usecase::download_default_model(&app_state)
+    })
+    .await
+    .map_err(|err| {
+        AppError::Io(std::io::Error::other(format!(
+            "Download task failed: {err}"
+        )))
+    })??;
+
+    Ok(DownloadModelResponse {
+        success: true,
+        message: format!(
+            "Downloaded {} to {}",
+            info.model_name,
+            info.destination_path.to_string_lossy()
+        ),
+        model_name: info.model_name,
+        model_path: info.destination_path.to_string_lossy().to_string(),
     })
 }

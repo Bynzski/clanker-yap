@@ -1,5 +1,6 @@
 //! Whisper.cpp integration.
 
+pub mod downloader;
 pub mod engine;
 pub use engine::WhisperEngine;
 

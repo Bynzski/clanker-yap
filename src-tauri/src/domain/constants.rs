@@ -19,6 +19,13 @@ pub const WHISPER_SAMPLE_RATE: u32 = 16_000;
 /// Default GGML model file name.
 pub const DEFAULT_MODEL_FILE: &str = "ggml-base.en.bin";
 
+/// Default upstream source for the base English GGML model.
+pub const DEFAULT_MODEL_URL: &str =
+    "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-base.en.bin?download=true";
+
+/// Display size for the default GGML model from the upstream source listing.
+pub const DEFAULT_MODEL_SIZE_LABEL: &str = "148 MB";
+
 /// Default push-to-talk hotkey.
 pub const DEFAULT_HOTKEY: &str = "CmdOrCtrl+Shift+V";
 
