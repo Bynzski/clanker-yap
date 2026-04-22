@@ -12,8 +12,10 @@ use crate::domain::APP_DATA_SUBDIR;
 pub fn app_data_dir() -> Result<PathBuf> {
     dirs::data_dir()
         .map(|p| p.join(APP_DATA_SUBDIR))
-        .ok_or_else(|| AppError::Io(std::io::Error::new(
-            std::io::ErrorKind::NotFound,
-            "Could not determine application data directory"
-        )))
+        .ok_or_else(|| {
+            AppError::Io(std::io::Error::new(
+                std::io::ErrorKind::NotFound,
+                "Could not determine application data directory",
+            ))
+        })
 }

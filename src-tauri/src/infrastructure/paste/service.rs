@@ -1,8 +1,8 @@
 //! Cross-platform keystroke injection using enigo.
 
+use enigo::{Direction, Enigo, Key, Keyboard, Settings};
 use tauri::AppHandle;
 use tauri_plugin_clipboard_manager::ClipboardExt;
-use enigo::{Enigo, Keyboard, Settings, Key, Direction};
 
 use crate::domain::error::{AppError, Result};
 
@@ -17,13 +17,20 @@ pub fn inject(app: &AppHandle, text: &str) -> Result<()> {
     let mut enigo = Enigo::new(&Settings::default())
         .map_err(|e| AppError::PasteFailed(format!("enigo init: {}", e)))?;
 
-    let paste_modifier = if cfg!(target_os = "macos") { Key::Meta } else { Key::Control };
-    
-    enigo.key(paste_modifier, Direction::Press)
+    let paste_modifier = if cfg!(target_os = "macos") {
+        Key::Meta
+    } else {
+        Key::Control
+    };
+
+    enigo
+        .key(paste_modifier, Direction::Press)
         .map_err(|e| AppError::PasteFailed(format!("keystroke press: {}", e)))?;
-    enigo.key(Key::Unicode('v'), Direction::Click)
+    enigo
+        .key(Key::Unicode('v'), Direction::Click)
         .map_err(|e| AppError::PasteFailed(format!("keystroke click: {}", e)))?;
-    enigo.key(paste_modifier, Direction::Release)
+    enigo
+        .key(paste_modifier, Direction::Release)
         .map_err(|e| AppError::PasteFailed(format!("keystroke release: {}", e)))?;
 
     Ok(())

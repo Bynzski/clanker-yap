@@ -1,7 +1,7 @@
 //! Shared application state shared across all Tauri commands and handlers.
 
-use std::sync::Arc;
 use parking_lot::Mutex;
+use std::sync::Arc;
 
 use crate::domain::settings::Settings;
 use crate::infrastructure::persistence::Db;
@@ -23,6 +23,9 @@ pub struct AppState {
 
     /// Current recording/processing state.
     pub recording: Arc<Mutex<RecordingState>>,
+
+    /// Last pipeline error surfaced to the UI.
+    pub last_error: Arc<Mutex<Option<String>>>,
 }
 
 /// Current state of the recording pipeline.
@@ -50,6 +53,7 @@ impl AppState {
             whisper: Arc::new(Mutex::new(None)),
             recorder: Arc::new(Mutex::new(None)),
             recording: Arc::new(Mutex::new(RecordingState::Idle)),
+            last_error: Arc::new(Mutex::new(None)),
         }
     }
 }

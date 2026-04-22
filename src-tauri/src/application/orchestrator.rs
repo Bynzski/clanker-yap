@@ -21,6 +21,14 @@ fn transition_to_idle(state: &AppState) {
     *r = RecordingState::Idle;
 }
 
+fn set_last_error(state: &AppState, message: impl Into<String>) {
+    *state.last_error.lock() = Some(message.into());
+}
+
+fn clear_last_error(state: &AppState) {
+    *state.last_error.lock() = None;
+}
+
 // ── Hotkey Press ────────────────────────────────────────────────────────────
 
 /// Called when the global hotkey is pressed — starts recording.
@@ -52,9 +60,14 @@ pub fn on_press(app: &AppHandle, state: &AppState) {
                 }
                 Err(e) => {
                     tracing::error!(error = ?e, "Failed to spawn audio recorder");
-                    let _ = app.emit("transcription-error", serde_json::json!({
-                        "error": format!("Microphone unavailable: {}", e)
-                    }));
+                    let error_message = format!("Microphone unavailable: {}", e);
+                    set_last_error(state, error_message.clone());
+                    let _ = app.emit(
+                        "transcription-error",
+                        serde_json::json!({
+                            "error": error_message
+                        }),
+                    );
                     return;
                 }
             }
@@ -67,14 +80,20 @@ pub fn on_press(app: &AppHandle, state: &AppState) {
         if let Some(rec) = rec_guard.as_ref() {
             if let Err(e) = rec.start() {
                 tracing::error!(error = ?e, "Failed to start recorder");
-                let _ = app.emit("transcription-error", serde_json::json!({
-                    "error": format!("Failed to start recording: {}", e)
-                }));
+                let error_message = format!("Failed to start recording: {}", e);
+                set_last_error(state, error_message.clone());
+                let _ = app.emit(
+                    "transcription-error",
+                    serde_json::json!({
+                        "error": error_message
+                    }),
+                );
                 return;
             }
         }
     }
 
+    clear_last_error(state);
     let mut recording = state.recording.lock();
     *recording = RecordingState::Recording {
         started_at: std::time::Instant::now(),
@@ -91,9 +110,7 @@ pub fn on_release(app: &AppHandle, state: &AppState) {
     let duration_ms = {
         let mut recording = state.recording.lock();
         match std::mem::replace(&mut *recording, RecordingState::Processing) {
-            RecordingState::Recording { started_at } => {
-                started_at.elapsed().as_millis() as i64
-            }
+            RecordingState::Recording { started_at } => started_at.elapsed().as_millis() as i64,
             _ => {
                 tracing::warn!("Release received without matching press — ignored");
                 return;
@@ -101,15 +118,18 @@ pub fn on_release(app: &AppHandle, state: &AppState) {
         }
     };
 
-    let _ = app.emit("recording-stopped", serde_json::json!({ "duration_ms": duration_ms }));
-    tracing::info!(duration_ms, "Recording stopped, running transcription pipeline");
+    let _ = app.emit(
+        "recording-stopped",
+        serde_json::json!({ "duration_ms": duration_ms }),
+    );
+    tracing::info!(
+        duration_ms,
+        "Recording stopped, running transcription pipeline"
+    );
 
     // Clone handles for the blocking task
     let app_clone = app.clone();
-    let state_clone = std::sync::Arc::new(AppState::new(
-        (*state.db).clone(),
-        state.settings.lock().clone(),
-    ));
+    let state_clone = std::sync::Arc::new(state.clone());
 
     tauri::async_runtime::spawn_blocking(move || {
         pipeline(&app_clone, &state_clone, duration_ms);
@@ -127,16 +147,26 @@ fn pipeline(app: &AppHandle, state: &AppState, duration_ms: i64) {
             Some(Ok(s)) => s,
             Some(Err(e)) => {
                 transition_to_idle(state);
-                let _ = app.emit("transcription-error", serde_json::json!({
-                    "error": format!("Recording failed: {}", e)
-                }));
+                let error_message = format!("Recording failed: {}", e);
+                set_last_error(state, error_message.clone());
+                let _ = app.emit(
+                    "transcription-error",
+                    serde_json::json!({
+                        "error": error_message
+                    }),
+                );
                 return;
             }
             None => {
                 transition_to_idle(state);
-                let _ = app.emit("transcription-error", serde_json::json!({
-                    "error": "No recorder available"
-                }));
+                let error_message = "No recorder available".to_string();
+                set_last_error(state, error_message.clone());
+                let _ = app.emit(
+                    "transcription-error",
+                    serde_json::json!({
+                        "error": error_message
+                    }),
+                );
                 return;
             }
         }
@@ -155,9 +185,14 @@ fn pipeline(app: &AppHandle, state: &AppState, duration_ms: i64) {
         Ok(t) => t,
         Err(e) => {
             transition_to_idle(state);
-            let _ = app.emit("transcription-error", serde_json::json!({
-                "error": format!("Transcription failed: {}", e)
-            }));
+            let error_message = format!("Transcription failed: {}", e);
+            set_last_error(state, error_message.clone());
+            let _ = app.emit(
+                "transcription-error",
+                serde_json::json!({
+                    "error": error_message
+                }),
+            );
             return;
         }
     };
@@ -181,10 +216,14 @@ fn pipeline(app: &AppHandle, state: &AppState, duration_ms: i64) {
         Err(e) => {
             tracing::warn!(error = ?e, "Transcription entity invalid — not saving");
             transition_to_idle(state);
-            let _ = app.emit("transcription-complete", serde_json::json!({
-                "text": text,
-                "duration_ms": duration_ms
-            }));
+            clear_last_error(state);
+            let _ = app.emit(
+                "transcription-complete",
+                serde_json::json!({
+                    "text": text,
+                    "duration_ms": duration_ms
+                }),
+            );
             return;
         }
     };
@@ -194,20 +233,22 @@ fn pipeline(app: &AppHandle, state: &AppState, duration_ms: i64) {
     }
 
     transition_to_idle(state);
-    let _ = app.emit("transcription-complete", serde_json::json!({
-        "text": text,
-        "duration_ms": duration_ms
-    }));
+    clear_last_error(state);
+    let _ = app.emit(
+        "transcription-complete",
+        serde_json::json!({
+            "text": text,
+            "duration_ms": duration_ms
+        }),
+    );
 }
 
 // ── Hotkey Re-registration ─────────────────────────────────────────────────
 
 /// Re-registers the global shortcut when hotkey setting changes.
 /// Returns `true` on success, `false` on failure.
-pub fn update_hotkey(app: &AppHandle, state: &AppState) -> bool {
+pub fn update_hotkey(app: &AppHandle, state: &AppState, hotkey_str: &str) -> bool {
     use tauri_plugin_global_shortcut::{GlobalShortcutExt, Shortcut, ShortcutState};
-
-    let hotkey_str = state.settings.lock().hotkey.clone();
 
     let shortcut: Shortcut = match hotkey_str.parse() {
         Ok(s) => s,
@@ -226,12 +267,13 @@ pub fn update_hotkey(app: &AppHandle, state: &AppState) -> bool {
     // Wrap in Arc so the closure can be 'static
     let state_handle = std::sync::Arc::new(state.clone());
 
-    if let Err(e) = app.global_shortcut().on_shortcut(shortcut, move |_app, _shortcut, event| {
-        match event.state {
+    if let Err(e) = app
+        .global_shortcut()
+        .on_shortcut(shortcut, move |_app, _shortcut, event| match event.state {
             ShortcutState::Pressed => on_press(&app_handle, &state_handle),
             ShortcutState::Released => on_release(&app_handle, &state_handle),
-        }
-    }) {
+        })
+    {
         tracing::error!(error = ?e, "Failed to register new hotkey");
         return false;
     }

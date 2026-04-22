@@ -27,7 +27,10 @@ fn current_schema() -> u32 {
 /// Returns the default model path using the dirs crate.
 fn default_model_path() -> PathBuf {
     dirs::data_dir()
-        .map(|p| p.join(crate::domain::APP_DATA_SUBDIR).join(crate::domain::DEFAULT_MODEL_FILE))
+        .map(|p| {
+            p.join(crate::domain::APP_DATA_SUBDIR)
+                .join(crate::domain::DEFAULT_MODEL_FILE)
+        })
         .unwrap_or_else(|| PathBuf::from(crate::domain::DEFAULT_MODEL_FILE))
 }
 
