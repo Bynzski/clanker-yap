@@ -5,13 +5,13 @@ Updated after each phase commit. Read by agent prompts to determine current stat
 
 ## Current Phase
 
-**Phase Prereq** — Project scaffold (pending start)
+**Phase 0** — Settings & SQLite storage (pending start)
 
 ## Phase Status
 
 | Phase | Description | Status | Commit |
 |-------|-------------|--------|--------|
-| Prereq | Project scaffold, directory structure, Cargo.toml deps | 🔲 | — |
+| Prereq | Project scaffold, directory structure, Cargo.toml deps | ✅ | cff44cbf4780871e263cb5a00e8a72289a6b8528 |
 | 0 | Settings & SQLite storage | 🔲 | — |
 | 1 | whisper.cpp integration | 🔲 | — |
 | 2 | Audio capture | 🔲 | — |
@@ -94,4 +94,4 @@ Updated after each phase commit. Read by agent prompts to determine current stat
 
 | Phase | Commit | Summary |
 |-------|--------|---------|
-| — | — | None yet |
+| Prereq | `cff44cbf4780871e263cb5a00e8a72289a6b8528` | Full scaffold: Tauri v2, all deps, domain/app/infra/presentation layers, 4 commands, audio resampler tests |
