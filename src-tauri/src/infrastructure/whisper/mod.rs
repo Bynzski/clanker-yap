@@ -3,9 +3,9 @@
 pub mod engine;
 pub use engine::WhisperEngine;
 
+use crate::application::AppState;
 use crate::domain::error::Result;
 use std::sync::Arc;
-use crate::application::AppState;
 
 /// Lazily loads and caches the whisper engine.
 pub fn load_or_get(state: &AppState) -> Result<Arc<WhisperEngine>> {

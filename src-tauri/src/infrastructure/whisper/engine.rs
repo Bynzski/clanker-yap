@@ -5,8 +5,8 @@
 use std::sync::Arc;
 use whisper_rs::{FullParams, SamplingStrategy};
 
-use crate::domain::error::{AppError, Result};
 use crate::domain::constants::MIN_RECORDING_DURATION_MS;
+use crate::domain::error::{AppError, Result};
 
 /// Wrapper around whisper-rs WhisperContext.
 pub struct WhisperEngine {
@@ -19,17 +19,18 @@ impl WhisperEngine {
         if !std::path::Path::new(model_path).exists() {
             return Err(AppError::ModelNotFound(model_path.into()));
         }
-        
+
         let ctx = whisper_rs::WhisperContext::new_with_params(
             model_path,
             whisper_rs::WhisperContextParameters::default(),
-        ).map_err(|e| AppError::Whisper(format!("load: {}", e)))?;
-        
+        )
+        .map_err(|e| AppError::Whisper(format!("load: {}", e)))?;
+
         Ok(Self { ctx })
     }
 
     /// Transcribes audio samples.
-    /// 
+    ///
     /// `samples` must be 16 kHz mono f32 in [-1, 1].
     /// Returns the transcribed text with leading/trailing whitespace trimmed.
     pub fn transcribe(&self, samples: &[f32]) -> Result<String> {
@@ -39,7 +40,9 @@ impl WhisperEngine {
             return Err(AppError::Whisper("Audio too short".into()));
         }
 
-        let mut state = self.ctx.create_state()
+        let mut state = self
+            .ctx
+            .create_state()
             .map_err(|e| AppError::Whisper(format!("create_state: {}", e)))?;
 
         let mut params = FullParams::new(SamplingStrategy::Greedy { best_of: 1 });
@@ -52,13 +55,13 @@ impl WhisperEngine {
         params.set_print_timestamps(false);
 
         let t0 = std::time::Instant::now();
-        state.full(params, samples)
+        state
+            .full(params, samples)
             .map_err(|e| AppError::Whisper(format!("full: {}", e)))?;
 
-        // Collect text from all segments using the iterator API
+        // Collect text from all segments using the iterator API.
         let mut out = String::new();
         for segment in state.as_iter() {
-            // to_str() returns Result<&str, WhisperError>
             if let Ok(text) = segment.to_str() {
                 out.push_str(text);
             }

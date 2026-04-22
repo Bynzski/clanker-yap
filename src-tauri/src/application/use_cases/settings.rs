@@ -1,8 +1,8 @@
 //! Settings use cases.
 
-use crate::domain::Result;
 use crate::domain::settings::Settings;
-use crate::infrastructure::persistence::{Db, settings_repo};
+use crate::domain::Result;
+use crate::infrastructure::persistence::{settings_repo, Db};
 
 /// Get the current application settings.
 pub fn get_settings(db: &Db) -> Result<Settings> {

@@ -34,7 +34,11 @@ impl RecorderHandle {
             .name("audio-recorder".into())
             .spawn(move || recorder_thread(cmd_rx, result_tx))?;
 
-        Ok(Self { cmd_tx, result_rx, _join: join })
+        Ok(Self {
+            cmd_tx,
+            result_rx,
+            _join: join,
+        })
     }
 
     /// Starts recording.
@@ -92,10 +96,10 @@ fn recorder_thread(cmd_rx: Receiver<RecorderCmd>, result_tx: Sender<Result<Vec<f
             Ok(RecorderCmd::Start) => {
                 // Clear and restart the buffer
                 buffer_clone.lock().clear();
-                
+
                 let buffer_for_stream = Arc::clone(&buffer);
                 let channels_for_dw = channels;
-                
+
                 let stream_result = match sample_format {
                     cpal::SampleFormat::F32 => {
                         device.build_input_stream(
@@ -119,27 +123,26 @@ fn recorder_thread(cmd_rx: Receiver<RecorderCmd>, result_tx: Sender<Result<Vec<f
                             None,
                         )
                     }
-                    cpal::SampleFormat::I16 => {
-                        device.build_input_stream(
-                            &stream_config,
-                            move |data: &[i16], _: &cpal::InputCallbackInfo| {
-                                let mut buf = buffer_for_stream.lock();
-                                if channels_for_dw == 1 {
-                                    buf.extend(data.iter().map(|&s| s as f32 / i16::MAX as f32));
-                                } else {
-                                    for frame in 0..data.len() / channels_for_dw {
-                                        let mut sum = 0.0f32;
-                                        for ch in 0..channels_for_dw {
-                                            sum += data[frame * channels_for_dw + ch] as f32 / i16::MAX as f32;
-                                        }
-                                        buf.push(sum / channels_for_dw as f32);
+                    cpal::SampleFormat::I16 => device.build_input_stream(
+                        &stream_config,
+                        move |data: &[i16], _: &cpal::InputCallbackInfo| {
+                            let mut buf = buffer_for_stream.lock();
+                            if channels_for_dw == 1 {
+                                buf.extend(data.iter().map(|&s| s as f32 / i16::MAX as f32));
+                            } else {
+                                for frame in 0..data.len() / channels_for_dw {
+                                    let mut sum = 0.0f32;
+                                    for ch in 0..channels_for_dw {
+                                        sum += data[frame * channels_for_dw + ch] as f32
+                                            / i16::MAX as f32;
                                     }
+                                    buf.push(sum / channels_for_dw as f32);
                                 }
-                            },
-                            err_fn,
-                            None,
-                        )
-                    }
+                            }
+                        },
+                        err_fn,
+                        None,
+                    ),
                     _ => {
                         // U16 or other formats - treat as i16
                         device.build_input_stream(
@@ -152,7 +155,8 @@ fn recorder_thread(cmd_rx: Receiver<RecorderCmd>, result_tx: Sender<Result<Vec<f
                                     for frame in 0..data.len() / channels_for_dw {
                                         let mut sum = 0.0f32;
                                         for ch in 0..channels_for_dw {
-                                            sum += data[frame * channels_for_dw + ch] as f32 / i16::MAX as f32;
+                                            sum += data[frame * channels_for_dw + ch] as f32
+                                                / i16::MAX as f32;
                                         }
                                         buf.push(sum / channels_for_dw as f32);
                                     }
@@ -177,10 +181,11 @@ fn recorder_thread(cmd_rx: Receiver<RecorderCmd>, result_tx: Sender<Result<Vec<f
                     drop(s);
                 }
                 let samples = buffer_clone.lock().split_off(0);
-                
+
                 // Resample to 16 kHz
-                let resampled = super::resample::resample(&samples, sample_rate, WHISPER_SAMPLE_RATE);
-                
+                let resampled =
+                    super::resample::resample(&samples, sample_rate, WHISPER_SAMPLE_RATE);
+
                 let duration_ms = resampled.len() as i64 * 1000 / WHISPER_SAMPLE_RATE as i64;
                 if duration_ms < MIN_RECORDING_DURATION_MS {
                     let _ = result_tx.send(Err(AppError::Audio("Recording too short".into())));

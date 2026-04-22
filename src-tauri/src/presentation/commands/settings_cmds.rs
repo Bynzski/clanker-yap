@@ -3,12 +3,10 @@
 use tauri::{AppHandle, State};
 
 use crate::application::orchestrator;
-use crate::application::AppState;
 use crate::application::use_cases::settings as settings_usecase;
+use crate::application::AppState;
 use crate::domain::error::{AppError, Result};
-use crate::presentation::dto::{
-    SettingsResponse, UpdateSettingsRequest, UpdateSettingsResponse,
-};
+use crate::presentation::dto::{SettingsResponse, UpdateSettingsRequest, UpdateSettingsResponse};
 
 /// Returns the current settings.
 #[tauri::command]
@@ -29,6 +27,8 @@ pub fn update_settings(
     request: UpdateSettingsRequest,
 ) -> Result<UpdateSettingsResponse> {
     let mut settings = state.settings.lock();
+    let mut hotkey_change: Option<(String, String)> = None;
+    let mut rollback_result: Option<UpdateSettingsResponse> = None;
 
     if let Some(ref hotkey) = request.hotkey {
         if hotkey.is_empty() {
@@ -45,13 +45,11 @@ pub fn update_settings(
     let mut requires_restart = false;
 
     if let Some(hotkey) = request.hotkey {
-        let changed = hotkey != settings.hotkey;
+        let previous_hotkey = settings.hotkey.clone();
+        let changed = hotkey != previous_hotkey;
         settings.hotkey = hotkey.clone();
         if changed {
-            requires_restart = !orchestrator::update_hotkey(&app, state.inner());
-            if requires_restart {
-                tracing::warn!("Hotkey re-registration failed — restart required");
-            }
+            hotkey_change = Some((previous_hotkey, hotkey));
         }
     }
 
@@ -66,7 +64,39 @@ pub fn update_settings(
     let updated_settings = settings.clone();
     drop(settings);
 
+    if let Some((previous_hotkey, new_hotkey)) = hotkey_change {
+        if !orchestrator::update_hotkey(&app, state.inner(), &new_hotkey) {
+            tracing::warn!("Hotkey re-registration failed — attempting rollback");
+
+            {
+                let mut settings = state.settings.lock();
+                settings.hotkey = previous_hotkey.clone();
+            }
+            *state.last_error.lock() =
+                Some(format!("Hotkey conflict: {} is already in use", new_hotkey));
+
+            if orchestrator::update_hotkey(&app, state.inner(), &previous_hotkey) {
+                rollback_result = Some(UpdateSettingsResponse {
+                    success: false,
+                    message: format!(
+                        "Hotkey '{}' is unavailable; restored '{}'",
+                        new_hotkey, previous_hotkey
+                    ),
+                    requires_restart: false,
+                });
+            } else {
+                requires_restart = true;
+                tracing::warn!("Hotkey rollback failed — restart required");
+            }
+        }
+    }
+
+    if let Some(response) = rollback_result {
+        return Ok(response);
+    }
+
     settings_usecase::update_settings(&state.db, updated_settings)?;
+    *state.last_error.lock() = None;
 
     Ok(UpdateSettingsResponse {
         success: true,

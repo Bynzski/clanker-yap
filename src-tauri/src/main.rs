@@ -6,7 +6,7 @@ use tauri::{Emitter, Manager};
 use tauri_plugin_global_shortcut::{GlobalShortcutExt, Shortcut, ShortcutState};
 
 use voice_transcribe_lib::{
-    application::{AppState, orchestrator},
+    application::{orchestrator, AppState},
     infrastructure::persistence::{db::Db, settings_repo},
 };
 
@@ -14,14 +14,14 @@ fn main() {
     voice_transcribe_lib::init_logging();
 
     // Single instance enforcement — focus existing window if duplicate launch
-    let _single_instance = tauri_plugin_single_instance::init(
-        |app: &tauri::AppHandle<tauri::Wry>, _args, _cwd| {
+    let single_instance =
+        tauri_plugin_single_instance::init(|app: &tauri::AppHandle<tauri::Wry>, _args, _cwd| {
             tracing::info!("Another instance attempted to start, focusing existing window");
             if let Some(window) = app.get_webview_window("main") {
                 let _ = window.set_focus();
             }
-        },
-    );
+            let _ = app.emit("app-already-running", ());
+        });
 
     // Initialize database and settings
     let db = Db::open().expect("Failed to open database");
@@ -36,6 +36,7 @@ fn main() {
     let app_state_for_run = app_state.clone();
 
     tauri::Builder::default()
+        .plugin(single_instance)
         .plugin(tauri_plugin_global_shortcut::Builder::new().build())
         .plugin(tauri_plugin_clipboard_manager::init())
         .manage(app_state.clone())
@@ -59,6 +60,7 @@ fn main() {
 
             let app_handle = app.handle().clone();
             let state_handle: Arc<AppState> = Arc::new(app_state_for_setup);
+            let state_for_error = state_handle.clone();
             let hotkey_for_error = hotkey_str.clone();
             let app_for_error = app.handle().clone();
 
@@ -69,6 +71,8 @@ fn main() {
                 }
             }) {
                 tracing::error!(error = ?e, "Failed to register global shortcut");
+                *state_for_error.last_error.lock() =
+                    Some(format!("Hotkey conflict: {} is already in use", hotkey_for_error));
                 let _ = app_for_error.emit("hotkey-conflict", serde_json::json!({
                     "hotkey": hotkey_for_error
                 }));

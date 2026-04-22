@@ -38,7 +38,23 @@ pub type Result<T> = std::result::Result<T, AppError>;
 
 /// AppError serializes to a string for Tauri command responses.
 impl Serialize for AppError {
-    fn serialize<S: serde::Serializer>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error> {
+    fn serialize<S: serde::Serializer>(
+        &self,
+        serializer: S,
+    ) -> std::result::Result<S::Ok, S::Error> {
         serializer.serialize_str(&self.to_string())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::AppError;
+
+    #[test]
+    fn serializes_to_display_string() {
+        let error = AppError::ModelNotFound("/tmp/model.bin".into());
+        let serialized = serde_json::to_string(&error).unwrap();
+
+        assert_eq!(serialized, "\"Model not found at: /tmp/model.bin\"");
     }
 }
