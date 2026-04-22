@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Voice Transcription</title>
+    <title>Clanker Yap</title>
     <link rel="stylesheet" href="style.css" />
     <script src="vendor/tauri.js"></script>
   </head>
@@ -38,6 +38,14 @@
               </div>
               <div class="status-chip" id="status-chip">Initializing</div>
             </div>
+            <div class="waveform" aria-hidden="true">
+              <span class="wave-bar"></span>
+              <span class="wave-bar"></span>
+              <span class="wave-bar"></span>
+              <span class="wave-bar"></span>
+              <span class="wave-bar"></span>
+              <span class="wave-bar"></span>
+            </div>
             <div class="status-metrics">
               <div class="metric-card">
                 <span class="metric-label">Mode</span>
@@ -63,16 +71,18 @@
           <div class="settings-grid">
             <article class="setting-card" id="hotkey-card">
               <div class="setting-card-head">
-                <div class="setting-icon" aria-hidden="true">
-                  <svg viewBox="0 0 24 24" role="img">
-                    <path
-                      d="M7 4a3 3 0 0 0-3 3v10a3 3 0 0 0 3 3h10a3 3 0 0 0 3-3V7a3 3 0 0 0-3-3H7Zm1 5a1 1 0 1 1 0 2H7a1 1 0 1 1 0-2h1Zm3 0a1 1 0 1 1 0 2h-1a1 1 0 1 1 0-2h1Zm3 0a1 1 0 1 1 0 2h-1a1 1 0 1 1 0-2h1Zm3 0a1 1 0 1 1 0 2h-1a1 1 0 1 1 0-2h1Zm-8 4h8a1 1 0 1 1 0 2H9a1 1 0 1 1 0-2Z"
-                    />
-                  </svg>
-                </div>
-                <div>
-                  <h3>Hotkey</h3>
-                  <p>Push-to-talk shortcut</p>
+                <div class="setting-title-group">
+                  <div class="setting-icon" aria-hidden="true">
+                    <svg viewBox="0 0 24 24" role="img">
+                      <path
+                        d="M7 4a3 3 0 0 0-3 3v10a3 3 0 0 0 3 3h10a3 3 0 0 0 3-3V7a3 3 0 0 0-3-3H7Zm1 5a1 1 0 1 1 0 2H7a1 1 0 1 1 0-2h1Zm3 0a1 1 0 1 1 0 2h-1a1 1 0 1 1 0-2h1Zm3 0a1 1 0 1 1 0 2h-1a1 1 0 1 1 0-2h1Zm3 0a1 1 0 1 1 0 2h-1a1 1 0 1 1 0-2h1Zm-8 4h8a1 1 0 1 1 0 2H9a1 1 0 1 1 0-2Z"
+                      />
+                    </svg>
+                  </div>
+                  <div>
+                    <h3>Hotkey</h3>
+                    <p>Push-to-talk shortcut</p>
+                  </div>
                 </div>
                 <button class="ghost-button" type="button" onclick="beginHotkeyCapture()">
                   Record shortcut
@@ -107,16 +117,18 @@
 
             <article class="setting-card setting-card-wide" id="model-card">
               <div class="setting-card-head">
-                <div class="setting-icon" aria-hidden="true">
-                  <svg viewBox="0 0 24 24" role="img">
-                    <path
-                      d="M10 4a2 2 0 0 0-2 2v2H6a2 2 0 0 0-2 2v7a3 3 0 0 0 3 3h10a3 3 0 0 0 3-3v-7a2 2 0 0 0-2-2h-2V6a2 2 0 0 0-2-2h-4Zm0 4V6h4v2h-4Zm-3 4h10v5a1 1 0 0 1-1 1H8a1 1 0 0 1-1-1v-5Z"
-                    />
-                  </svg>
-                </div>
-                <div>
-                  <h3>Model</h3>
-                  <p>Local Whisper model path</p>
+                <div class="setting-title-group">
+                  <div class="setting-icon" aria-hidden="true">
+                    <svg viewBox="0 0 24 24" role="img">
+                      <path
+                        d="M10 4a2 2 0 0 0-2 2v2H6a2 2 0 0 0-2 2v7a3 3 0 0 0 3 3h10a3 3 0 0 0 3-3v-7a2 2 0 0 0-2-2h-2V6a2 2 0 0 0-2-2h-4Zm0 4V6h4v2h-4Zm-3 4h10v5a1 1 0 0 1-1 1H8a1 1 0 0 1-1-1v-5Z"
+                      />
+                    </svg>
+                  </div>
+                  <div>
+                    <h3>Model</h3>
+                    <p>Local Whisper model path</p>
+                  </div>
                 </div>
                 <div class="setting-card-controls">
                   <button class="ghost-button" type="button" id="download-model-btn" onclick="confirmModelDownload()">
@@ -148,14 +160,16 @@
 
             <article class="setting-card" id="paste-card">
               <div class="setting-card-head">
-                <div class="setting-icon" aria-hidden="true">
-                  <svg viewBox="0 0 24 24" role="img">
-                    <path d="M9 3a2 2 0 0 0-2 2v1H6a2 2 0 0 0-2 2v9a4 4 0 0 0 4 4h8a4 4 0 0 0 4-4V8a2 2 0 0 0-2-2h-1V5a2 2 0 0 0-2-2H9Zm0 3V5h6v1H9Zm-1 3h8v8a2 2 0 0 1-2 2H10a2 2 0 0 1-2-2V9Z"/>
-                  </svg>
-                </div>
-                <div>
-                  <h3>Paste mode</h3>
-                  <p>Choose how text is injected</p>
+                <div class="setting-title-group">
+                  <div class="setting-icon" aria-hidden="true">
+                    <svg viewBox="0 0 24 24" role="img">
+                      <path d="M9 3a2 2 0 0 0-2 2v1H6a2 2 0 0 0-2 2v9a4 4 0 0 0 4 4h8a4 4 0 0 0 4-4V8a2 2 0 0 0-2-2h-1V5a2 2 0 0 0-2-2H9Zm0 3V5h6v1H9Zm-1 3h8v8a2 2 0 0 1-2 2H10a2 2 0 0 1-2-2V9Z"/>
+                    </svg>
+                  </div>
+                  <div>
+                    <h3>Paste mode</h3>
+                    <p>Choose how text is injected</p>
+                  </div>
                 </div>
                 <button class="ghost-button" type="button" onclick="showEdit('paste')">
                   Edit
@@ -166,11 +180,11 @@
                 <strong class="setting-primary" id="paste-mode-value">Auto</strong>
                 <p class="setting-tertiary" id="paste-mode-description">Uses standard paste behavior by default.</p>
                 <div class="setting-edit" id="edit-paste">
-                  <select id="paste-mode-input" class="setting-select">
-                    <option value="auto">Auto</option>
-                    <option value="standard">Standard</option>
-                    <option value="terminal">Terminal</option>
-                  </select>
+                  <div class="segmented-control" id="paste-mode-input" role="radiogroup" aria-label="Paste mode">
+                    <button class="segment-button" type="button" data-value="auto" onclick="selectPasteMode('auto')">Auto</button>
+                    <button class="segment-button" type="button" data-value="standard" onclick="selectPasteMode('standard')">Standard</button>
+                    <button class="segment-button" type="button" data-value="terminal" onclick="selectPasteMode('terminal')">Terminal</button>
+                  </div>
                   <div class="setting-actions">
                     <button class="primary-button" type="button" onclick="submitPasteMode()">
                       Save
@@ -191,10 +205,15 @@
               <p class="panel-kicker">History</p>
               <h2>Recent transcriptions</h2>
             </div>
-            <p class="panel-note">Newest entries appear first.</p>
+            <div class="panel-heading-actions">
+              <p class="panel-note">Newest entries appear first.</p>
+              <button class="ghost-button ghost-button-compact" type="button" id="history-toggle" onclick="toggleHistory()">
+                Collapse
+              </button>
+            </div>
           </div>
 
-          <ul class="history-list" id="history-list">
+          <ul class="history-list" id="history-list" data-collapsed="false">
             <li class="empty-state">
               <span class="empty-title">No transcriptions yet</span>
               <span class="empty-copy">Hold the hotkey and start speaking.</span>

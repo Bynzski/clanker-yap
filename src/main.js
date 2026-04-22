@@ -13,6 +13,8 @@ let currentError = null;
 let modelDownloadInfo = null;
 let capturedHotkey = null;
 let hotkeyCaptureActive = false;
+let selectedPasteMode = "auto";
+let historyCollapsed = false;
 
 async function init() {
     showStatus("loading", "Loading", "Initializing");
@@ -173,7 +175,6 @@ function updateSettingsUI(nextSettings) {
     const modelInput = document.getElementById("model-input");
     const pasteModeValueEl = document.getElementById("paste-mode-value");
     const pasteModeDescriptionEl = document.getElementById("paste-mode-description");
-    const pasteModeInput = document.getElementById("paste-mode-input");
 
     if (hotkeyEl) hotkeyEl.textContent = nextSettings.hotkey || "--";
     if (hotkeyDisplayEl) hotkeyDisplayEl.textContent = formatHotkeyForDisplay(nextSettings.hotkey) || "Press a shortcut with at least one modifier.";
@@ -182,7 +183,8 @@ function updateSettingsUI(nextSettings) {
     if (modelInput) modelInput.value = nextSettings.model_path || "";
     if (pasteModeValueEl) pasteModeValueEl.textContent = formatPasteMode(nextSettings.paste_mode);
     if (pasteModeDescriptionEl) pasteModeDescriptionEl.textContent = getPasteModeDescription(nextSettings.paste_mode);
-    if (pasteModeInput) pasteModeInput.value = nextSettings.paste_mode || "auto";
+    selectedPasteMode = nextSettings.paste_mode || "auto";
+    updatePasteModeSelector(selectedPasteMode);
 }
 
 function updateModelDownloadUI(info) {
@@ -225,6 +227,8 @@ function updateHistoryUI(items) {
             `;
         })
         .join("");
+
+    updateHistoryCollapseUI();
 }
 
 function showError(type, message) {
@@ -326,6 +330,7 @@ async function updatePasteMode(newMode) {
         }
 
         settings.paste_mode = newMode;
+        selectedPasteMode = newMode;
         updateSettingsUI(settings);
         clearError();
         showStatus("idle", "Ready", "Awaiting shortcut");
@@ -333,6 +338,19 @@ async function updatePasteMode(newMode) {
         showError("settings", `Failed to update paste mode: ${err}`);
         showStatus("error", "Settings error", "Unable to save paste mode");
     }
+}
+
+function selectPasteMode(value) {
+    selectedPasteMode = value;
+    updatePasteModeSelector(value);
+}
+
+function updatePasteModeSelector(value) {
+    document.querySelectorAll(".segment-button").forEach((button) => {
+        const isActive = button.dataset.value === value;
+        button.classList.toggle("active", isActive);
+        button.setAttribute("aria-checked", isActive ? "true" : "false");
+    });
 }
 
 async function confirmModelDownload() {
@@ -686,12 +704,24 @@ function submitModelPath() {
 }
 
 function submitPasteMode() {
-    const input = document.getElementById("paste-mode-input");
-    const value = input?.value;
-    if (!value) return;
+    if (!selectedPasteMode) return;
 
     hideEdit("paste");
-    updatePasteMode(value);
+    updatePasteMode(selectedPasteMode);
+}
+
+function toggleHistory() {
+    historyCollapsed = !historyCollapsed;
+    updateHistoryCollapseUI();
+}
+
+function updateHistoryCollapseUI() {
+    const listEl = document.getElementById("history-list");
+    const toggleEl = document.getElementById("history-toggle");
+    if (!listEl || !toggleEl) return;
+
+    listEl.dataset.collapsed = historyCollapsed ? "true" : "false";
+    toggleEl.textContent = historyCollapsed ? "Expand" : "Collapse";
 }
 
 window.showEdit = showEdit;
@@ -702,6 +732,8 @@ window.submitPasteMode = submitPasteMode;
 window.confirmModelDownload = confirmModelDownload;
 window.beginHotkeyCapture = beginHotkeyCapture;
 window.clearCapturedHotkey = clearCapturedHotkey;
+window.selectPasteMode = selectPasteMode;
+window.toggleHistory = toggleHistory;
 
 document.addEventListener("DOMContentLoaded", init);
 document.addEventListener("keydown", handleHotkeyCapture, true);
