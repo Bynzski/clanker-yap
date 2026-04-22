@@ -24,3 +24,11 @@ dist-ssr
 *.sw?
 node_modules/
 package-lock.json
+
+# Local app/runtime artifacts that should not be pushed
+src-tauri/target/
+src-tauri/gen/
+voice-transcribe.db
+*.db-journal
+ggml-*.bin
+*.bin.part
