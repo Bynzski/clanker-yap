@@ -5,12 +5,76 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Voice Transcription</title>
     <link rel="stylesheet" href="style.css" />
+    <!-- Tauri API v2.10.1 (vanilla JS shim via window.__TAURI__) -->
+    <script src="vendor/tauri.js"></script>
   </head>
   <body>
-    <div class="container">
-      <h1>🎤 Voice Transcription</h1>
-      <p id="status">Loading…</p>
-    </div>
+    <div class="app">
+
+      <!-- ── Header ──────────────────────────────────────────────── -->
+      <header class="app-header">
+        <h1 class="app-title">🎤 Voice Transcription</h1>
+        <div class="status-row" id="status">
+          <div class="status-indicator"></div>
+          <span class="status-label" id="status-text">Loading…</span>
+        </div>
+      </header>
+
+      <!-- ── Settings ───────────────────────────────────────────── -->
+      <section class="settings-section">
+
+        <!-- Hotkey -->
+        <div class="setting-row">
+          <span class="setting-label">Hotkey</span>
+          <span class="setting-value" id="hotkey-value">—</span>
+          <button class="setting-btn" onclick="showEdit('hotkey')">[Change…]</button>
+
+          <!-- Inline edit: hotkey -->
+          <div class="setting-edit" id="edit-hotkey">
+            <input type="text" id="hotkey-input" placeholder="e.g. CmdOrCtrl+Shift+V" />
+            <button class="save-btn" onclick="submitHotkey()">Save</button>
+            <button class="cancel-btn" onclick="hideEdit('hotkey')">Cancel</button>
+          </div>
+        </div>
+
+        <!-- Model name -->
+        <div class="setting-row">
+          <span class="setting-label">Model</span>
+          <span class="setting-value" id="model-name">—</span>
+          <span style="width:56px"></span><!-- spacer -->
+        </div>
+
+        <!-- Model path -->
+        <div class="setting-row">
+          <span class="setting-label">Model path</span>
+          <span class="setting-value" id="model-path">—</span>
+          <button class="setting-btn" onclick="showEdit('model')">[Change…]</button>
+
+          <!-- Inline edit: model path -->
+          <div class="setting-edit" id="edit-model">
+            <input type="text" id="model-input" placeholder="/full/path/to/model.bin" />
+            <button class="save-btn" onclick="submitModelPath()">Save</button>
+            <button class="cancel-btn" onclick="hideEdit('model')">Cancel</button>
+          </div>
+        </div>
+
+      </section>
+
+      <div class="divider"></div>
+
+      <!-- ── History ──────────────────────────────────────────────── -->
+      <section class="history-section">
+        <h2 class="section-title">Recent transcriptions</h2>
+        <ul class="history-list" id="history-list">
+          <li class="empty-state">No transcriptions yet. Hold the hotkey to start.</li>
+        </ul>
+      </section>
+
+      <!-- ── Error Banner ─────────────────────────────────────────── -->
+      <div class="error-banner" id="error-banner"></div>
+
+    </div><!-- .app -->
+
     <script src="main.js"></script>
   </body>
 </html>
