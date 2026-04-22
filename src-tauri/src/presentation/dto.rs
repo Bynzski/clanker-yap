@@ -8,6 +8,7 @@ pub struct SettingsResponse {
     pub hotkey: String,
     pub model_path: String,
     pub model_name: String,
+    pub paste_mode: String,
 }
 
 /// Information about the built-in model download option.
@@ -26,6 +27,7 @@ pub struct UpdateSettingsRequest {
     pub hotkey: Option<String>,
     pub model_path: Option<String>,
     pub model_name: Option<String>,
+    pub paste_mode: Option<String>,
 }
 
 /// Response for update_settings command.

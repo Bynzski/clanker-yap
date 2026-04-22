@@ -15,6 +15,10 @@ pub struct Settings {
     /// Human-readable model name (e.g. "base.en").
     pub model_name: String,
 
+    /// Clipboard paste strategy for different target apps.
+    #[serde(default = "default_paste_mode")]
+    pub paste_mode: String,
+
     /// Schema version for future migrations.
     #[serde(default = "current_schema")]
     pub schema_version: u32,
@@ -22,6 +26,10 @@ pub struct Settings {
 
 fn current_schema() -> u32 {
     1
+}
+
+fn default_paste_mode() -> String {
+    "auto".to_string()
 }
 
 /// Returns the default model path using the dirs crate.
@@ -40,6 +48,7 @@ impl Default for Settings {
             hotkey: crate::domain::DEFAULT_HOTKEY.to_string(),
             model_path: default_model_path().to_string_lossy().to_string(),
             model_name: crate::domain::DEFAULT_MODEL_FILE.to_string(),
+            paste_mode: default_paste_mode(),
             schema_version: current_schema(),
         }
     }

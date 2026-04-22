@@ -11,6 +11,8 @@ let settings = null;
 let transcriptions = [];
 let currentError = null;
 let modelDownloadInfo = null;
+let capturedHotkey = null;
+let hotkeyCaptureActive = false;
 
 async function init() {
     showStatus("loading", "Loading", "Initializing");
@@ -165,16 +167,22 @@ function getStateDescription(state) {
 
 function updateSettingsUI(nextSettings) {
     const hotkeyEl = document.getElementById("hotkey-value");
+    const hotkeyDisplayEl = document.getElementById("hotkey-display");
     const modelNameEl = document.getElementById("model-name");
     const modelPathEl = document.getElementById("model-path");
-    const hotkeyInput = document.getElementById("hotkey-input");
     const modelInput = document.getElementById("model-input");
+    const pasteModeValueEl = document.getElementById("paste-mode-value");
+    const pasteModeDescriptionEl = document.getElementById("paste-mode-description");
+    const pasteModeInput = document.getElementById("paste-mode-input");
 
     if (hotkeyEl) hotkeyEl.textContent = nextSettings.hotkey || "--";
+    if (hotkeyDisplayEl) hotkeyDisplayEl.textContent = formatHotkeyForDisplay(nextSettings.hotkey) || "Press a shortcut with at least one modifier.";
     if (modelNameEl) modelNameEl.textContent = nextSettings.model_name || "--";
     if (modelPathEl) modelPathEl.textContent = nextSettings.model_path || "--";
-    if (hotkeyInput) hotkeyInput.value = nextSettings.hotkey || "";
     if (modelInput) modelInput.value = nextSettings.model_path || "";
+    if (pasteModeValueEl) pasteModeValueEl.textContent = formatPasteMode(nextSettings.paste_mode);
+    if (pasteModeDescriptionEl) pasteModeDescriptionEl.textContent = getPasteModeDescription(nextSettings.paste_mode);
+    if (pasteModeInput) pasteModeInput.value = nextSettings.paste_mode || "auto";
 }
 
 function updateModelDownloadUI(info) {
@@ -266,6 +274,7 @@ async function updateHotkey(newHotkey) {
 
         settings.hotkey = newHotkey;
         updateSettingsUI(settings);
+        resetHotkeyCaptureState();
         clearError();
         showStatus("idle", "Ready", "Awaiting shortcut");
     } catch (err) {
@@ -300,6 +309,29 @@ async function updateModelPath(newPath) {
     } catch (err) {
         showError("model", `Failed to update model path: ${err}`);
         showStatus("error", "Model error", "Unable to save path");
+    }
+}
+
+async function updatePasteMode(newMode) {
+    try {
+        const result = await invoke("update_settings", {
+            request: { paste_mode: newMode },
+        });
+
+        if (result.success === false) {
+            showError("settings", result.message || "Paste mode update failed.");
+            showStatus("error", "Settings error", "Unable to save paste mode");
+            updateSettingsUI(settings);
+            return;
+        }
+
+        settings.paste_mode = newMode;
+        updateSettingsUI(settings);
+        clearError();
+        showStatus("idle", "Ready", "Awaiting shortcut");
+    } catch (err) {
+        showError("settings", `Failed to update paste mode: ${err}`);
+        showStatus("error", "Settings error", "Unable to save paste mode");
     }
 }
 
@@ -369,6 +401,226 @@ function relativeTime(isoString) {
     }
 }
 
+function beginHotkeyCapture() {
+    showEdit("hotkey");
+    hotkeyCaptureActive = true;
+    capturedHotkey = null;
+    updateHotkeyCaptureUI({
+        label: "Press desired shortcut",
+        value: "Waiting for input",
+        hint: "Use at least one modifier key plus a non-modifier key.",
+        valid: false,
+        capturing: true,
+    });
+
+    const captureEl = document.getElementById("hotkey-capture");
+    if (captureEl) {
+        captureEl.focus();
+    }
+}
+
+function handleHotkeyCapture(event) {
+    if (!hotkeyCaptureActive) {
+        return;
+    }
+
+    event.preventDefault();
+
+    if (event.key === "Escape") {
+        hideEdit("hotkey");
+        return;
+    }
+
+    const parsed = parseHotkeyEvent(event);
+    updateHotkeyCaptureUI(parsed);
+}
+
+function parseHotkeyEvent(event) {
+    const modifiers = [];
+    const displayModifiers = [];
+
+    if (event.ctrlKey || event.metaKey) {
+        modifiers.push("CmdOrCtrl");
+        displayModifiers.push(getCommandLabel());
+    }
+    if (event.shiftKey) {
+        modifiers.push("Shift");
+        displayModifiers.push("Shift");
+    }
+    if (event.altKey) {
+        modifiers.push("Alt");
+        displayModifiers.push("Alt");
+    }
+
+    const keyInfo = normalizeHotkeyKey(event.key);
+    if (!keyInfo) {
+        return {
+            label: "Shortcut rejected",
+            value: formatPressedModifiers(displayModifiers),
+            hint: "Use at least one modifier and one supported key.",
+            valid: false,
+            capturing: true,
+        };
+    }
+
+    if (modifiers.length === 0) {
+        return {
+            label: "Modifier required",
+            value: keyInfo.display,
+            hint: "Add Ctrl, Cmd, Shift, or Alt to create a global shortcut.",
+            valid: false,
+            capturing: true,
+        };
+    }
+
+    const storageValue = [...modifiers, keyInfo.storage].join("+");
+    const displayValue = [...displayModifiers, keyInfo.display].join(" + ");
+
+    capturedHotkey = storageValue;
+
+    return {
+        label: "Shortcut captured",
+        value: displayValue,
+        hint: storageValue,
+        valid: true,
+        capturing: true,
+    };
+}
+
+function normalizeHotkeyKey(rawKey) {
+    if (!rawKey) {
+        return null;
+    }
+
+    const key = rawKey.length === 1 ? rawKey.toUpperCase() : rawKey;
+    const lower = key.toLowerCase();
+
+    if (["control", "shift", "alt", "meta", "os"].includes(lower)) {
+        return null;
+    }
+
+    if (/^[A-Z]$/.test(key) || /^[0-9]$/.test(key)) {
+        return { storage: key, display: key };
+    }
+
+    if (/^F([1-9]|1[0-2])$/.test(key.toUpperCase())) {
+        return { storage: key.toUpperCase(), display: key.toUpperCase() };
+    }
+
+    const map = {
+        arrowup: { storage: "Up", display: "Up Arrow" },
+        arrowdown: { storage: "Down", display: "Down Arrow" },
+        arrowleft: { storage: "Left", display: "Left Arrow" },
+        arrowright: { storage: "Right", display: "Right Arrow" },
+        enter: { storage: "Enter", display: "Enter" },
+        tab: { storage: "Tab", display: "Tab" },
+        escape: { storage: "Escape", display: "Escape" },
+        esc: { storage: "Escape", display: "Escape" },
+        " ": { storage: "Space", display: "Space" },
+        spacebar: { storage: "Space", display: "Space" },
+        backspace: { storage: "Backspace", display: "Backspace" },
+        delete: { storage: "Delete", display: "Delete" },
+        home: { storage: "Home", display: "Home" },
+        end: { storage: "End", display: "End" },
+        pageup: { storage: "PageUp", display: "Page Up" },
+        pagedown: { storage: "PageDown", display: "Page Down" },
+        insert: { storage: "Insert", display: "Insert" },
+    };
+
+    return map[lower] || null;
+}
+
+function updateHotkeyCaptureUI({ label, value, hint, valid, capturing }) {
+    const captureEl = document.getElementById("hotkey-capture");
+    const labelEl = document.getElementById("hotkey-capture-label");
+    const valueEl = document.getElementById("hotkey-capture-value");
+    const hintEl = document.getElementById("hotkey-capture-hint");
+    const saveButtonEl = document.getElementById("save-hotkey-btn");
+
+    if (labelEl) labelEl.textContent = label;
+    if (valueEl) valueEl.textContent = value;
+    if (hintEl) hintEl.textContent = hint;
+    if (saveButtonEl) saveButtonEl.disabled = !valid;
+    if (captureEl) {
+        captureEl.classList.toggle("capturing", Boolean(capturing));
+        captureEl.classList.toggle("invalid", capturing && !valid);
+    }
+}
+
+function formatPressedModifiers(modifiers) {
+    return modifiers.length > 0 ? modifiers.join(" + ") : "Waiting for input";
+}
+
+function formatHotkeyForDisplay(value) {
+    if (!value) {
+        return "";
+    }
+
+    return value
+        .split("+")
+        .map((part) => {
+            if (part === "CmdOrCtrl") return getCommandLabel();
+            if (part === "Alt") return "Alt";
+            if (part === "Shift") return "Shift";
+            if (part === "PageUp") return "Page Up";
+            if (part === "PageDown") return "Page Down";
+            if (part === "Left") return "Left Arrow";
+            if (part === "Right") return "Right Arrow";
+            if (part === "Up") return "Up Arrow";
+            if (part === "Down") return "Down Arrow";
+            return part;
+        })
+        .join(" + ");
+}
+
+function formatPasteMode(value) {
+    switch (value) {
+        case "terminal":
+            return "Terminal";
+        case "standard":
+            return "Standard";
+        case "auto":
+        default:
+            return "Auto";
+    }
+}
+
+function getPasteModeDescription(value) {
+    switch (value) {
+        case "terminal":
+            return "Uses Linux terminal paste shortcuts such as Ctrl + Shift + V.";
+        case "standard":
+            return "Uses the normal application paste shortcut.";
+        case "auto":
+        default:
+            return "Uses standard paste behavior by default.";
+    }
+}
+
+function getCommandLabel() {
+    return navigator.platform.toLowerCase().includes("mac") ? "Cmd" : "Ctrl";
+}
+
+function clearCapturedHotkey() {
+    capturedHotkey = null;
+    updateHotkeyCaptureUI({
+        label: "Press desired shortcut",
+        value: "Waiting for input",
+        hint: "Use at least one modifier key plus a non-modifier key.",
+        valid: false,
+        capturing: hotkeyCaptureActive,
+    });
+}
+
+function resetHotkeyCaptureState() {
+    hotkeyCaptureActive = false;
+    clearCapturedHotkey();
+    const captureEl = document.getElementById("hotkey-capture");
+    if (captureEl) {
+        captureEl.classList.remove("capturing", "invalid");
+    }
+}
+
 function generateId() {
     return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, (char) => {
         const random = Math.random() * 16 | 0;
@@ -390,10 +642,17 @@ function showEdit(field) {
     if (editEl) editEl.classList.add("active");
     if (cardEl) cardEl.classList.add("editing");
 
-    const input = editEl?.querySelector("input");
-    if (input) {
-        input.focus();
-        input.select();
+    if (field === "hotkey") {
+        const captureEl = document.getElementById("hotkey-capture");
+        if (captureEl) {
+            captureEl.focus();
+        }
+    } else {
+        const input = editEl?.querySelector("input");
+        if (input) {
+            input.focus();
+            input.select();
+        }
     }
 }
 
@@ -403,12 +662,15 @@ function hideEdit(field) {
 
     if (editEl) editEl.classList.remove("active");
     if (cardEl) cardEl.classList.remove("editing");
+    if (field === "hotkey") {
+        hotkeyCaptureActive = false;
+        resetHotkeyCaptureState();
+    }
 }
 
 function submitHotkey() {
-    const input = document.getElementById("hotkey-input");
-    const value = input?.value.trim();
-    if (!value) return;
+    if (!capturedHotkey) return;
+    const value = capturedHotkey;
 
     hideEdit("hotkey");
     updateHotkey(value);
@@ -423,10 +685,23 @@ function submitModelPath() {
     updateModelPath(value);
 }
 
+function submitPasteMode() {
+    const input = document.getElementById("paste-mode-input");
+    const value = input?.value;
+    if (!value) return;
+
+    hideEdit("paste");
+    updatePasteMode(value);
+}
+
 window.showEdit = showEdit;
 window.hideEdit = hideEdit;
 window.submitHotkey = submitHotkey;
 window.submitModelPath = submitModelPath;
+window.submitPasteMode = submitPasteMode;
 window.confirmModelDownload = confirmModelDownload;
+window.beginHotkeyCapture = beginHotkeyCapture;
+window.clearCapturedHotkey = clearCapturedHotkey;
 
 document.addEventListener("DOMContentLoaded", init);
+document.addEventListener("keydown", handleHotkeyCapture, true);

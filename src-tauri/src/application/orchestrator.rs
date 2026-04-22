@@ -206,7 +206,7 @@ fn pipeline(app: &AppHandle, state: &AppState, duration_ms: i64) {
     tracing::info!(text_len = text.len(), "Transcribed");
 
     // 3. Paste (log error but continue — text stays in clipboard for manual paste)
-    if let Err(e) = paste::execute(app, &text) {
+    if let Err(e) = paste::execute(app, &text, state) {
         tracing::warn!(error = ?e, "Paste injection failed — text available in clipboard");
     }
 
