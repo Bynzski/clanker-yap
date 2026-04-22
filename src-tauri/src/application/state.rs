@@ -7,6 +7,7 @@ use crate::domain::settings::Settings;
 use crate::infrastructure::persistence::Db;
 
 /// Application state holding all shared resources.
+#[derive(Clone)]
 pub struct AppState {
     /// SQLite database connection.
     pub db: Arc<Db>,

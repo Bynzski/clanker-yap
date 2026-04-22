@@ -1,6 +1,6 @@
 //! Settings use cases.
 
-use crate::domain::error::{AppError, Result};
+use crate::domain::Result;
 use crate::domain::settings::Settings;
 use crate::infrastructure::persistence::{Db, settings_repo};
 

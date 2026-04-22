@@ -1,7 +1,6 @@
 //! Audio resampling to whisper.cpp required 16 kHz mono f32.
 
 use crate::domain::constants::WHISPER_SAMPLE_RATE;
-use crate::domain::error::Result;
 
 /// Resamples audio to 16 kHz mono f32.
 pub fn resample(samples: &[f32], input_rate: u32, _output_rate: u32) -> Vec<f32> {

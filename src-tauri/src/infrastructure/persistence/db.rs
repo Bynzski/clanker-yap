@@ -1,52 +1,61 @@
 //! SQLite database connection wrapper.
 
-use rusqlite::Connection;
 use parking_lot::Mutex;
-use std::path::PathBuf;
+use rusqlite::Connection;
 
 use crate::domain::error::{AppError, Result};
+
 use super::paths::app_data_dir;
 
-/// SQLite database wrapper.
+/// SQLite database wrapper. The connection is wrapped in an `Arc<Mutex<_>>`
+/// so it can be cheaply cloned and sent across thread boundaries.
+#[derive(Clone)]
 pub struct Db {
-    conn: parking_lot::Mutex<Connection>,
+    conn: std::sync::Arc<Mutex<Connection>>,
 }
 
 impl Db {
     /// Opens or creates the SQLite database.
     pub fn open() -> Result<Self> {
         let data_dir = app_data_dir()?;
-        std::fs::create_dir_all(&data_dir)
-            .map_err(|e| AppError::Io(e))?;
-        
+        std::fs::create_dir_all(&data_dir).map_err(AppError::Io)?;
+
         let db_path = data_dir.join("voice-transcribe.db");
-        let conn = Connection::open(&db_path)
-            .map_err(AppError::Sqlite)?;
-        
-        // Initialize schema
+        let conn = Connection::open(&db_path).map_err(AppError::Sqlite)?;
+
         conn.execute_batch(
-            "CREATE TABLE IF NOT EXISTS app_settings (
-                id INTEGER PRIMARY KEY CHECK (id = 1),
-                payload TEXT NOT NULL,
-                updated_at TEXT NOT NULL
+            r#"
+            CREATE TABLE IF NOT EXISTS app_settings (
+                id          INTEGER PRIMARY KEY CHECK (id = 1),
+                payload     TEXT NOT NULL,
+                updated_at  TEXT NOT NULL
             );
-            
+
             CREATE TABLE IF NOT EXISTS transcriptions (
-                id TEXT PRIMARY KEY,
-                text TEXT NOT NULL,
+                id          TEXT PRIMARY KEY,
+                text        TEXT NOT NULL,
                 duration_ms INTEGER NOT NULL,
-                created_at TEXT NOT NULL
+                created_at  TEXT NOT NULL
             );
-            
+
             CREATE INDEX IF NOT EXISTS idx_transcriptions_created_at
-                ON transcriptions(created_at DESC);"
-        ).map_err(AppError::Sqlite)?;
-        
-        Ok(Self { conn: parking_lot::Mutex::new(conn) })
+                ON transcriptions(created_at DESC);
+            "#,
+        )
+        .map_err(AppError::Sqlite)?;
+
+        Ok(Self {
+            conn: std::sync::Arc::new(Mutex::new(conn)),
+        })
+    }
+
+    /// Returns a clone of the inner Arc so blocking tasks get their own guard.
+    pub fn clone_conn(&self) -> std::sync::Arc<Mutex<Connection>> {
+        self.conn.clone()
     }
 
     /// Returns a reference to the connection guard.
-    pub fn conn(&self) -> &parking_lot::Mutex<Connection> {
+    pub fn conn(&self) -> &std::sync::Arc<Mutex<Connection>> {
         &self.conn
     }
 }
