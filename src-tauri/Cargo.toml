@@ -1,0 +1,36 @@
+[package]
+name = "voice-transcribe"
+version = "0.1.0"
+description = "Local voice-to-text transcription app"
+authors = ["jay"]
+edition = "2021"
+
+[lib]
+name = "voice_transcribe_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = [] }
+tauri-plugin-global-shortcut = "2"
+tauri-plugin-clipboard-manager = "2"
+tauri-plugin-single-instance = "2"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+thiserror = "1"
+parking_lot = "0.12"
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+rusqlite = { version = "0.32", features = ["bundled"] }
+uuid = { version = "1", features = ["v4"] }
+chrono = { version = "0.4", features = ["serde"] }
+dirs = "5"
+cpal = "0.15"
+hound = "3.5"
+rubato = "0.15"
+whisper-rs = "0.16"
+enigo = "0.2"
+num_cpus = "1"
+crossbeam-channel = "0.5"
