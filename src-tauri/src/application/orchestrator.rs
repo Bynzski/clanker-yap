@@ -1,4 +1,263 @@
-//! Orchestration - coordinates recording, transcription, and paste pipeline.
-//! (Phase 3 will implement the full logic; this is a placeholder for compilation.)
+//! Orchestration — wires global hotkey to record → transcribe → paste → save.
+//!
+//! Push-to-talk: Pressed = start recording, Released = stop + pipeline.
+//!
+//! Shortcut events come from `tauri-plugin-global-shortcut` (main.rs callback).
+//! Audio flows through `RecorderHandle::stop_and_collect()` (blocking on dedicated thread).
+//! Events are emitted to the frontend via `app.emit(...)`.
 
-// Placeholder - Phase 3 implements orchestration
+use tauri::{AppHandle, Emitter};
+
+use crate::application::state::{AppState, RecordingState};
+use crate::application::use_cases::paste;
+use crate::application::use_cases::transcribe as transcribe_usecase;
+use crate::application::use_cases::transcription as transcription_usecase;
+use crate::domain::transcription::Transcription;
+
+// ── Helpers ─────────────────────────────────────────────────────────────────
+
+fn transition_to_idle(state: &AppState) {
+    let mut r = state.recording.lock();
+    *r = RecordingState::Idle;
+}
+
+// ── Hotkey Press ────────────────────────────────────────────────────────────
+
+/// Called when the global hotkey is pressed — starts recording.
+pub fn on_press(app: &AppHandle, state: &AppState) {
+    let recording = state.recording.lock();
+
+    match &*recording {
+        RecordingState::Idle => {}
+        RecordingState::Recording { .. } => {
+            tracing::debug!("Hotkey pressed while already recording — debounced");
+            return;
+        }
+        RecordingState::Processing => {
+            tracing::debug!("Hotkey pressed while processing — debounced");
+            return;
+        }
+    }
+
+    drop(recording);
+
+    // Lazily spawn recorder
+    {
+        let mut recorder_slot = state.recorder.lock();
+        if recorder_slot.is_none() {
+            match crate::infrastructure::audio::RecorderHandle::spawn() {
+                Ok(handle) => {
+                    *recorder_slot = Some(handle);
+                    tracing::info!("Audio recorder spawned");
+                }
+                Err(e) => {
+                    tracing::error!(error = ?e, "Failed to spawn audio recorder");
+                    let _ = app.emit("transcription-error", serde_json::json!({
+                        "error": format!("Microphone unavailable: {}", e)
+                    }));
+                    return;
+                }
+            }
+        }
+    }
+
+    // Start recording
+    {
+        let rec_guard = state.recorder.lock();
+        if let Some(rec) = rec_guard.as_ref() {
+            if let Err(e) = rec.start() {
+                tracing::error!(error = ?e, "Failed to start recorder");
+                let _ = app.emit("transcription-error", serde_json::json!({
+                    "error": format!("Failed to start recording: {}", e)
+                }));
+                return;
+            }
+        }
+    }
+
+    let mut recording = state.recording.lock();
+    *recording = RecordingState::Recording {
+        started_at: std::time::Instant::now(),
+    };
+
+    tracing::info!("Recording started");
+    let _ = app.emit("recording-started", ());
+}
+
+// ── Hotkey Release ──────────────────────────────────────────────────────────
+
+/// Called when the global hotkey is released — triggers the full pipeline.
+pub fn on_release(app: &AppHandle, state: &AppState) {
+    let duration_ms = {
+        let mut recording = state.recording.lock();
+        match std::mem::replace(&mut *recording, RecordingState::Processing) {
+            RecordingState::Recording { started_at } => {
+                started_at.elapsed().as_millis() as i64
+            }
+            _ => {
+                tracing::warn!("Release received without matching press — ignored");
+                return;
+            }
+        }
+    };
+
+    let _ = app.emit("recording-stopped", serde_json::json!({ "duration_ms": duration_ms }));
+    tracing::info!(duration_ms, "Recording stopped, running transcription pipeline");
+
+    // Clone handles for the blocking task
+    let app_clone = app.clone();
+    let state_clone = std::sync::Arc::new(AppState::new(
+        (*state.db).clone(),
+        state.settings.lock().clone(),
+    ));
+
+    tauri::async_runtime::spawn_blocking(move || {
+        pipeline(&app_clone, &state_clone, duration_ms);
+    });
+}
+
+// ── Pipeline (runs on blocking thread) ─────────────────────────────────────
+
+/// Record → transcribe → paste → save.
+fn pipeline(app: &AppHandle, state: &AppState, duration_ms: i64) {
+    // 1. Stop recorder and collect samples
+    let samples = {
+        let guard = state.recorder.lock();
+        match guard.as_ref().map(|r| r.stop_and_collect()) {
+            Some(Ok(s)) => s,
+            Some(Err(e)) => {
+                transition_to_idle(state);
+                let _ = app.emit("transcription-error", serde_json::json!({
+                    "error": format!("Recording failed: {}", e)
+                }));
+                return;
+            }
+            None => {
+                transition_to_idle(state);
+                let _ = app.emit("transcription-error", serde_json::json!({
+                    "error": "No recorder available"
+                }));
+                return;
+            }
+        }
+    };
+
+    if samples.is_empty() {
+        tracing::info!("No audio samples collected");
+        transition_to_idle(state);
+        return;
+    }
+
+    tracing::debug!(samples = samples.len(), "Collected audio samples");
+
+    // 2. Transcribe (CPU-bound whisper runs on this blocking thread)
+    let text = match transcribe_usecase::execute(&samples, state) {
+        Ok(t) => t,
+        Err(e) => {
+            transition_to_idle(state);
+            let _ = app.emit("transcription-error", serde_json::json!({
+                "error": format!("Transcription failed: {}", e)
+            }));
+            return;
+        }
+    };
+
+    if text.is_empty() {
+        tracing::info!("Transcription produced empty text — skipping paste and save");
+        transition_to_idle(state);
+        return;
+    }
+
+    tracing::info!(text_len = text.len(), "Transcribed");
+
+    // 3. Paste (log error but continue — text stays in clipboard for manual paste)
+    if let Err(e) = paste::execute(app, &text) {
+        tracing::warn!(error = ?e, "Paste injection failed — text available in clipboard");
+    }
+
+    // 4. Save transcription
+    let transcription = match Transcription::new(text.clone(), duration_ms) {
+        Ok(t) => t,
+        Err(e) => {
+            tracing::warn!(error = ?e, "Transcription entity invalid — not saving");
+            transition_to_idle(state);
+            let _ = app.emit("transcription-complete", serde_json::json!({
+                "text": text,
+                "duration_ms": duration_ms
+            }));
+            return;
+        }
+    };
+
+    if let Err(e) = transcription_usecase::save_transcription(&state.db, &transcription) {
+        tracing::warn!(error = ?e, "Failed to persist transcription");
+    }
+
+    transition_to_idle(state);
+    let _ = app.emit("transcription-complete", serde_json::json!({
+        "text": text,
+        "duration_ms": duration_ms
+    }));
+}
+
+// ── Hotkey Re-registration ─────────────────────────────────────────────────
+
+/// Re-registers the global shortcut when hotkey setting changes.
+/// Returns `true` on success, `false` on failure.
+pub fn update_hotkey(app: &AppHandle, state: &AppState) -> bool {
+    use tauri_plugin_global_shortcut::{GlobalShortcutExt, Shortcut, ShortcutState};
+
+    let hotkey_str = state.settings.lock().hotkey.clone();
+
+    let shortcut: Shortcut = match hotkey_str.parse() {
+        Ok(s) => s,
+        Err(e) => {
+            tracing::error!(error = ?e, "Invalid hotkey string");
+            return false;
+        }
+    };
+
+    // Unregister all first
+    if let Err(e) = app.global_shortcut().unregister_all() {
+        tracing::warn!(error = ?e, "Failed to unregister existing shortcuts");
+    }
+
+    let app_handle = app.clone();
+    // Wrap in Arc so the closure can be 'static
+    let state_handle = std::sync::Arc::new(state.clone());
+
+    if let Err(e) = app.global_shortcut().on_shortcut(shortcut, move |_app, _shortcut, event| {
+        match event.state {
+            ShortcutState::Pressed => on_press(&app_handle, &state_handle),
+            ShortcutState::Released => on_release(&app_handle, &state_handle),
+        }
+    }) {
+        tracing::error!(error = ?e, "Failed to register new hotkey");
+        return false;
+    }
+
+    tracing::info!(hotkey = %hotkey_str, "Hotkey re-registered");
+    true
+}
+
+// ── Shutdown ───────────────────────────────────────────────────────────────
+
+/// Cleans up resources on application exit.
+pub fn shutdown(state: &AppState) {
+    tracing::info!("Orchestrator shutdown");
+
+    // Stop active recording if any
+    let is_recording = matches!(&*state.recording.lock(), RecordingState::Recording { .. });
+    if is_recording {
+        let guard = state.recorder.lock();
+        if let Some(rec) = guard.as_ref() {
+            rec.shutdown();
+        }
+        tracing::info!("Recording abandoned on shutdown");
+    }
+
+    // Drop whisper engine to release model memory
+    let mut whisper_slot = state.whisper.lock();
+    *whisper_slot = None;
+    tracing::info!("Whisper engine dropped");
+}

@@ -8,7 +8,7 @@ use parking_lot::Mutex;
 use std::sync::Arc;
 use std::thread::{self, JoinHandle};
 
-use crate::domain::constants::{MAX_RECORDING_DURATION_MS, MIN_RECORDING_DURATION_MS, WHISPER_SAMPLE_RATE};
+use crate::domain::constants::{MIN_RECORDING_DURATION_MS, WHISPER_SAMPLE_RATE};
 use crate::domain::error::{AppError, Result};
 
 enum RecorderCmd {
@@ -47,6 +47,11 @@ impl RecorderHandle {
     pub fn stop_and_collect(&self) -> Result<Vec<f32>> {
         self.cmd_tx.send(RecorderCmd::Stop).ok();
         self.result_rx.recv().unwrap_or(Ok(Vec::new()))
+    }
+
+    /// Signals the worker to shut down immediately (drop stream, exit thread).
+    pub fn shutdown(&self) {
+        let _ = self.cmd_tx.send(RecorderCmd::Shutdown);
     }
 }
 

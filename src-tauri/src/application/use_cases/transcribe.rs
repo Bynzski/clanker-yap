@@ -1,9 +1,7 @@
 //! Transcription use case wrapping whisper engine.
 
-use std::sync::Arc;
-
 use crate::application::AppState;
-use crate::domain::error::Result;
+use crate::domain::Result;
 use crate::infrastructure::whisper;
 
 /// Transcribes audio samples using the whisper engine.
