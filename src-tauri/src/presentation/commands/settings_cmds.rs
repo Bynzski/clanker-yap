@@ -21,6 +21,7 @@ pub fn get_settings(state: State<'_, AppState>) -> Result<SettingsResponse> {
         model_path: settings.model_path.clone(),
         model_name: settings.model_name.clone(),
         paste_mode: settings.paste_mode.clone(),
+        audio_input: settings.audio_input.clone(),
     })
 }
 
@@ -89,6 +90,10 @@ pub fn update_settings(
 
     if let Some(paste_mode) = request.paste_mode {
         settings.paste_mode = paste_mode;
+    }
+
+    if let Some(audio_input) = request.audio_input {
+        settings.audio_input = Some(audio_input);
     }
 
     let updated_settings = settings.clone();

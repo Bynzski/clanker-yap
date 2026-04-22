@@ -15,6 +15,8 @@ let capturedHotkey = null;
 let hotkeyCaptureActive = false;
 let selectedPasteMode = "auto";
 let historyCollapsed = false;
+let audioDevices = [];
+let selectedMicName = null;
 
 async function init() {
     showStatus("loading", "Loading", "Initializing");
@@ -47,6 +49,8 @@ async function init() {
         }
 
         await loadModelDownloadInfo();
+        await loadAudioDevices();
+        updateMicrophoneStatus(settings);
     } catch (err) {
         console.error("Init error:", err);
         showStatus("error", "Unavailable", "Failed to load");
@@ -175,6 +179,7 @@ function updateSettingsUI(nextSettings) {
     const modelInput = document.getElementById("model-input");
     const pasteModeValueEl = document.getElementById("paste-mode-value");
     const pasteModeDescriptionEl = document.getElementById("paste-mode-description");
+    const micValueEl = document.getElementById("microphone-value");
 
     if (hotkeyEl) hotkeyEl.textContent = nextSettings.hotkey || "--";
     if (hotkeyDisplayEl) hotkeyDisplayEl.textContent = formatHotkeyForDisplay(nextSettings.hotkey) || "Press a shortcut with at least one modifier.";
@@ -185,6 +190,17 @@ function updateSettingsUI(nextSettings) {
     if (pasteModeDescriptionEl) pasteModeDescriptionEl.textContent = getPasteModeDescription(nextSettings.paste_mode);
     selectedPasteMode = nextSettings.paste_mode || "auto";
     updatePasteModeSelector(selectedPasteMode);
+
+    const audioInput = nextSettings.audio_input;
+    if (micValueEl) {
+        if (!audioInput || audioInput.type === "system_default") {
+            micValueEl.textContent = "System Default";
+        } else if (audioInput.type === "by_name") {
+            micValueEl.textContent = audioInput.value;
+        }
+    }
+
+    updateMicrophoneStatus(nextSettings);
 }
 
 function updateModelDownloadUI(info) {
@@ -665,6 +681,8 @@ function showEdit(field) {
         if (captureEl) {
             captureEl.focus();
         }
+    } else if (field === "microphone") {
+        loadAudioDevices().then(() => populateMicrophoneSelect());
     } else {
         const input = editEl?.querySelector("input");
         if (input) {
@@ -724,11 +742,114 @@ function updateHistoryCollapseUI() {
     toggleEl.textContent = historyCollapsed ? "Expand" : "Collapse";
 }
 
+async function loadAudioDevices() {
+    try {
+        audioDevices = await invoke("list_audio_inputs");
+    } catch (err) {
+        console.error("Failed to list audio devices:", err);
+        audioDevices = [];
+    }
+}
+
+function populateMicrophoneSelect() {
+    const selectEl = document.getElementById("microphone-select");
+    if (!selectEl) return;
+
+    const currentSelection = settings?.audio_input;
+    const currentName =
+        currentSelection && currentSelection.type === "by_name"
+            ? currentSelection.value
+            : null;
+
+    let html = '<option value="__system_default__">System Default</option>';
+
+    for (const device of audioDevices) {
+        const displayName = device.name + device.name_suffix;
+        const defaultTag = device.is_default ? " (Default)" : "";
+        const stateTag = device.state === "Unavailable"
+            ? " — Currently unavailable"
+            : device.state === "FormatUnsupported"
+                ? " — Format unsupported"
+                : "";
+        const label = escapeHtml(displayName + defaultTag + stateTag);
+        const selected = device.name === currentName ? " selected" : "";
+        html += `<option value="${escapeHtml(device.name)}"${selected}>${label}</option>`;
+    }
+
+    if (currentName && !audioDevices.some((d) => d.name === currentName)) {
+        html += `<option value="${escapeHtml(currentName)}" selected>${escapeHtml(currentName)} — Currently unavailable</option>`;
+    }
+
+    selectEl.innerHTML = html;
+
+    if (!currentName) {
+        selectEl.value = "__system_default__";
+    }
+}
+
+function updateMicrophoneStatus(nextSettings) {
+    const statusEl = document.getElementById("microphone-status");
+    if (!statusEl) return;
+
+    const audioInput = nextSettings.audio_input;
+    if (!audioInput || audioInput.type === "system_default") {
+        statusEl.textContent = "Using the operating system's default input device.";
+        return;
+    }
+
+    const name = audioInput.value;
+    const device = audioDevices.find((d) => d.name === name);
+
+    if (!device) {
+        statusEl.textContent = "Selected device is currently unavailable. Will fall back to system default.";
+        return;
+    }
+
+    if (device.state === "Unavailable") {
+        statusEl.textContent = "Device detected but currently unavailable.";
+    } else if (device.state === "FormatUnsupported") {
+        statusEl.textContent = "Device has no supported input format.";
+    } else {
+        statusEl.textContent = "Available.";
+    }
+}
+
+async function submitMicrophone() {
+    const selectEl = document.getElementById("microphone-select");
+    if (!selectEl) return;
+
+    const value = selectEl.value;
+    hideEdit("microphone");
+
+    const audioInput =
+        value === "__system_default__"
+            ? { type: "system_default" }
+            : { type: "by_name", value: value };
+
+    try {
+        const result = await invoke("update_settings", {
+            request: { audio_input: audioInput },
+        });
+
+        if (result.success === false) {
+            showError("settings", result.message || "Microphone update failed.");
+            return;
+        }
+
+        settings.audio_input = audioInput;
+        updateSettingsUI(settings);
+        clearError();
+    } catch (err) {
+        showError("settings", `Failed to update microphone: ${err}`);
+    }
+}
+
 window.showEdit = showEdit;
 window.hideEdit = hideEdit;
 window.submitHotkey = submitHotkey;
 window.submitModelPath = submitModelPath;
 window.submitPasteMode = submitPasteMode;
+window.submitMicrophone = submitMicrophone;
 window.confirmModelDownload = confirmModelDownload;
 window.beginHotkeyCapture = beginHotkeyCapture;
 window.clearCapturedHotkey = clearCapturedHotkey;

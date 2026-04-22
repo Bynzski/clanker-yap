@@ -9,6 +9,7 @@ pub struct SettingsResponse {
     pub model_path: String,
     pub model_name: String,
     pub paste_mode: String,
+    pub audio_input: Option<crate::domain::settings::AudioInputSelection>,
 }
 
 /// Information about the built-in model download option.
@@ -28,6 +29,7 @@ pub struct UpdateSettingsRequest {
     pub model_path: Option<String>,
     pub model_name: Option<String>,
     pub paste_mode: Option<String>,
+    pub audio_input: Option<crate::domain::settings::AudioInputSelection>,
 }
 
 /// Response for update_settings command.

@@ -158,6 +158,43 @@
               </div>
             </article>
 
+            <article class="setting-card" id="microphone-card">
+              <div class="setting-card-head">
+                <div class="setting-title-group">
+                  <div class="setting-icon" aria-hidden="true">
+                    <svg viewBox="0 0 24 24" role="img">
+                      <path
+                        d="M12 3a4 4 0 0 0-4 4v5a4 4 0 0 0 8 0V7a4 4 0 0 0-4-4Zm-6 9a1 1 0 1 1 2 0 4 4 0 1 0 8 0 1 1 0 1 1 2 0 5.99 5.99 0 0 1-5 5.91V21h3a1 1 0 1 1 0 2H8a1 1 0 1 1 0-2h3v-3.09A5.99 5.99 0 0 1 6 12Z"
+                      />
+                    </svg>
+                  </div>
+                  <div>
+                    <h3>Microphone</h3>
+                    <p>Audio input device</p>
+                  </div>
+                </div>
+                <button class="ghost-button" type="button" onclick="showEdit('microphone')">
+                  Edit
+                </button>
+              </div>
+
+              <div class="setting-body">
+                <strong class="setting-primary" id="microphone-value">System Default</strong>
+                <p class="setting-tertiary" id="microphone-status"></p>
+                <div class="setting-edit" id="edit-microphone">
+                  <select class="setting-select" id="microphone-select"></select>
+                  <div class="setting-actions">
+                    <button class="primary-button" type="button" onclick="submitMicrophone()">
+                      Save
+                    </button>
+                    <button class="ghost-button" type="button" onclick="hideEdit('microphone')">
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </article>
+
             <article class="setting-card" id="paste-card">
               <div class="setting-card-head">
                 <div class="setting-title-group">
