@@ -2,7 +2,7 @@
 name = "voice-transcribe"
 version = "0.1.0"
 description = "Local voice-to-text transcription app"
-authors = ["jay"]
+authors = ["Clanker contributors"]
 edition = "2021"
 
 [lib]
