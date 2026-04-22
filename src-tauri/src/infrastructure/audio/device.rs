@@ -43,9 +43,7 @@ fn probe_device_state(device: &cpal::Device) -> DeviceState {
 pub fn list_audio_inputs() -> Result<Vec<AudioDeviceInfo>> {
     let host = cpal::default_host();
 
-    let default_name = host
-        .default_input_device()
-        .and_then(|d| d.name().ok());
+    let default_name = host.default_input_device().and_then(|d| d.name().ok());
 
     let devices: Vec<_> = host
         .input_devices()
