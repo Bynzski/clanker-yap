@@ -3,6 +3,19 @@
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 
+/// Selection semantics for audio input device.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(tag = "type", content = "value")]
+pub enum AudioInputSelection {
+    /// Use system default. Resolved fresh at each recording start.
+    #[serde(rename = "system_default")]
+    SystemDefault,
+
+    /// Select by exact name match. Persisted as-is.
+    #[serde(rename = "by_name")]
+    ByName(String),
+}
+
 /// Settings stored as a single JSON row in SQLite.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Settings {
@@ -18,6 +31,10 @@ pub struct Settings {
     /// Clipboard paste strategy for different target apps.
     #[serde(default = "default_paste_mode")]
     pub paste_mode: String,
+
+    /// Audio input selection. None = use system default.
+    #[serde(default)]
+    pub audio_input: Option<AudioInputSelection>,
 
     /// Schema version for future migrations.
     #[serde(default = "current_schema")]
@@ -49,6 +66,7 @@ impl Default for Settings {
             model_path: default_model_path().to_string_lossy().to_string(),
             model_name: crate::domain::DEFAULT_MODEL_FILE.to_string(),
             paste_mode: default_paste_mode(),
+            audio_input: None,
             schema_version: current_schema(),
         }
     }

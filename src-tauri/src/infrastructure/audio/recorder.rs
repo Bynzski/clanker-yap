@@ -22,22 +22,35 @@ pub struct RecorderHandle {
     cmd_tx: Sender<RecorderCmd>,
     result_rx: Receiver<Result<Vec<f32>>>,
     _join: JoinHandle<()>,
+    pub device_name: String,
 }
 
 impl RecorderHandle {
-    /// Spawns the recorder worker thread.
+    /// Spawns the recorder worker thread using the system default input device.
     pub fn spawn() -> Result<Self> {
+        use cpal::traits::{DeviceTrait, HostTrait};
+        let host = cpal::default_host();
+        let device = host
+            .default_input_device()
+            .ok_or(AppError::MicrophoneUnavailable)?;
+        let name = device.name().unwrap_or_else(|_| "system default".into());
+        Self::spawn_for_device(device, name)
+    }
+
+    /// Spawns the recorder worker thread for a pre-resolved device.
+    pub fn spawn_for_device(device: cpal::Device, device_name: String) -> Result<Self> {
         let (cmd_tx, cmd_rx) = crossbeam_channel::unbounded();
         let (result_tx, result_rx) = crossbeam_channel::bounded(1);
 
         let join = thread::Builder::new()
             .name("audio-recorder".into())
-            .spawn(move || recorder_thread(cmd_rx, result_tx))?;
+            .spawn(move || recorder_thread(device, cmd_rx, result_tx))?;
 
         Ok(Self {
             cmd_tx,
             result_rx,
             _join: join,
+            device_name,
         })
     }
 
@@ -59,17 +72,12 @@ impl RecorderHandle {
     }
 }
 
-fn recorder_thread(cmd_rx: Receiver<RecorderCmd>, result_tx: Sender<Result<Vec<f32>>>) {
-    use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
-
-    let host = cpal::default_host();
-    let device = match host.default_input_device() {
-        Some(d) => d,
-        None => {
-            let _ = result_tx.send(Err(AppError::MicrophoneUnavailable));
-            return;
-        }
-    };
+fn recorder_thread(
+    device: cpal::Device,
+    cmd_rx: Receiver<RecorderCmd>,
+    result_tx: Sender<Result<Vec<f32>>>,
+) {
+    use cpal::traits::{DeviceTrait, StreamTrait};
 
     let config = match device.default_input_config() {
         Ok(c) => c,

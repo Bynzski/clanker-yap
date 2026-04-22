@@ -6,6 +6,7 @@
 //! Audio flows through `RecorderHandle::stop_and_collect()` (blocking on dedicated thread).
 //! Events are emitted to the frontend via `app.emit(...)`.
 
+use cpal::traits::{DeviceTrait, HostTrait};
 use tauri::{AppHandle, Emitter};
 
 use crate::application::state::{AppState, RecordingState};
@@ -49,14 +50,56 @@ pub fn on_press(app: &AppHandle, state: &AppState) {
 
     drop(recording);
 
-    // Lazily spawn recorder
+    // Resolve audio device from settings and (re)spawn recorder if needed
     {
+        let settings = state.settings.lock();
+        let selection = settings
+            .audio_input
+            .clone()
+            .unwrap_or(crate::domain::settings::AudioInputSelection::SystemDefault);
+        drop(settings);
+
+        let (device, device_name) =
+            match crate::infrastructure::audio::device::resolve_audio_input(&selection) {
+                Ok(d) => d,
+                Err(_) => {
+                    let host = cpal::default_host();
+                    match host.default_input_device() {
+                        Some(d) => {
+                            let name = d.name().unwrap_or_else(|_| "system default".into());
+                            (d, name)
+                        }
+                        None => {
+                            let error_message =
+                                "No audio input devices available".to_string();
+                            set_last_error(state, error_message.clone());
+                            let _ = app.emit(
+                                "transcription-error",
+                                serde_json::json!({ "error": error_message }),
+                            );
+                            return;
+                        }
+                    }
+                }
+            };
+
         let mut recorder_slot = state.recorder.lock();
-        if recorder_slot.is_none() {
-            match crate::infrastructure::audio::RecorderHandle::spawn() {
+        let needs_respawn = match recorder_slot.as_ref() {
+            None => true,
+            Some(existing) => existing.device_name != device_name,
+        };
+
+        if needs_respawn {
+            if let Some(old) = recorder_slot.take() {
+                old.shutdown();
+            }
+            match crate::infrastructure::audio::RecorderHandle::spawn_for_device(
+                device,
+                device_name.clone(),
+            ) {
                 Ok(handle) => {
                     *recorder_slot = Some(handle);
-                    tracing::info!("Audio recorder spawned");
+                    tracing::info!(device = %device_name, "Audio recorder spawned");
                 }
                 Err(e) => {
                     tracing::error!(error = ?e, "Failed to spawn audio recorder");
@@ -64,9 +107,7 @@ pub fn on_press(app: &AppHandle, state: &AppState) {
                     set_last_error(state, error_message.clone());
                     let _ = app.emit(
                         "transcription-error",
-                        serde_json::json!({
-                            "error": error_message
-                        }),
+                        serde_json::json!({ "error": error_message }),
                     );
                     return;
                 }
