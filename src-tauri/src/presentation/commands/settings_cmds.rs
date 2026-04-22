@@ -20,6 +20,7 @@ pub fn get_settings(state: State<'_, AppState>) -> Result<SettingsResponse> {
         hotkey: settings.hotkey.clone(),
         model_path: settings.model_path.clone(),
         model_name: settings.model_name.clone(),
+        paste_mode: settings.paste_mode.clone(),
     })
 }
 
@@ -59,6 +60,14 @@ pub fn update_settings(
         }
     }
 
+    if let Some(ref paste_mode) = request.paste_mode {
+        if !matches!(paste_mode.as_str(), "auto" | "standard" | "terminal") {
+            return Err(AppError::SettingsInvalid(format!(
+                "Invalid paste mode: {paste_mode}"
+            )));
+        }
+    }
+
     let mut requires_restart = false;
 
     if let Some(hotkey) = request.hotkey {
@@ -76,6 +85,10 @@ pub fn update_settings(
 
     if let Some(model_name) = request.model_name {
         settings.model_name = model_name;
+    }
+
+    if let Some(paste_mode) = request.paste_mode {
+        settings.paste_mode = paste_mode;
     }
 
     let updated_settings = settings.clone();

@@ -74,18 +74,28 @@
                   <h3>Hotkey</h3>
                   <p>Push-to-talk shortcut</p>
                 </div>
-                <button class="ghost-button" type="button" onclick="showEdit('hotkey')">
-                  Edit
+                <button class="ghost-button" type="button" onclick="beginHotkeyCapture()">
+                  Record shortcut
                 </button>
               </div>
 
               <div class="setting-body">
                 <code class="setting-primary" id="hotkey-value">--</code>
+                <p class="setting-tertiary" id="hotkey-display">Press a shortcut with at least one modifier.</p>
                 <div class="setting-edit" id="edit-hotkey">
-                  <input type="text" id="hotkey-input" placeholder="CmdOrCtrl+Shift+V" />
+                  <div class="hotkey-capture" id="hotkey-capture" tabindex="0">
+                    <span class="hotkey-capture-label" id="hotkey-capture-label">Press desired shortcut</span>
+                    <strong class="hotkey-capture-value" id="hotkey-capture-value">Waiting for input</strong>
+                    <span class="hotkey-capture-hint" id="hotkey-capture-hint">
+                      Use at least one modifier key plus a non-modifier key.
+                    </span>
+                  </div>
                   <div class="setting-actions">
-                    <button class="primary-button" type="button" onclick="submitHotkey()">
+                    <button class="primary-button" type="button" id="save-hotkey-btn" onclick="submitHotkey()" disabled>
                       Save
+                    </button>
+                    <button class="ghost-button" type="button" onclick="clearCapturedHotkey()">
+                      Clear
                     </button>
                     <button class="ghost-button" type="button" onclick="hideEdit('hotkey')">
                       Cancel
@@ -129,6 +139,43 @@
                       Save
                     </button>
                     <button class="ghost-button" type="button" onclick="hideEdit('model')">
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </article>
+
+            <article class="setting-card" id="paste-card">
+              <div class="setting-card-head">
+                <div class="setting-icon" aria-hidden="true">
+                  <svg viewBox="0 0 24 24" role="img">
+                    <path d="M9 3a2 2 0 0 0-2 2v1H6a2 2 0 0 0-2 2v9a4 4 0 0 0 4 4h8a4 4 0 0 0 4-4V8a2 2 0 0 0-2-2h-1V5a2 2 0 0 0-2-2H9Zm0 3V5h6v1H9Zm-1 3h8v8a2 2 0 0 1-2 2H10a2 2 0 0 1-2-2V9Z"/>
+                  </svg>
+                </div>
+                <div>
+                  <h3>Paste mode</h3>
+                  <p>Choose how text is injected</p>
+                </div>
+                <button class="ghost-button" type="button" onclick="showEdit('paste')">
+                  Edit
+                </button>
+              </div>
+
+              <div class="setting-body">
+                <strong class="setting-primary" id="paste-mode-value">Auto</strong>
+                <p class="setting-tertiary" id="paste-mode-description">Uses standard paste behavior by default.</p>
+                <div class="setting-edit" id="edit-paste">
+                  <select id="paste-mode-input" class="setting-select">
+                    <option value="auto">Auto</option>
+                    <option value="standard">Standard</option>
+                    <option value="terminal">Terminal</option>
+                  </select>
+                  <div class="setting-actions">
+                    <button class="primary-button" type="button" onclick="submitPasteMode()">
+                      Save
+                    </button>
+                    <button class="ghost-button" type="button" onclick="hideEdit('paste')">
                       Cancel
                     </button>
                   </div>
