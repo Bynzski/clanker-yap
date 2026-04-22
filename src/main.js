@@ -14,12 +14,18 @@ let modelDownloadInfo = null;
 let capturedHotkey = null;
 let hotkeyCaptureActive = false;
 let selectedPasteMode = "auto";
-let historyCollapsed = false;
 let audioDevices = [];
 let selectedMicName = null;
+let activePanel = null;
+let resizeObserver = null;
+let resizeFrame = null;
+
+const COMPACT_WINDOW_HEIGHT = 196;
 
 async function init() {
     showStatus("loading", "Loading", "Initializing");
+    setupWindowSizing();
+    setupUiEventListeners();
 
     try {
         const [settingsData, historyData, statusData] = await Promise.all([
@@ -58,6 +64,7 @@ async function init() {
     }
 
     await setupEventListeners();
+    scheduleWindowResize();
 }
 
 async function loadModelDownloadInfo() {
@@ -85,6 +92,11 @@ async function setupEventListeners() {
             console.error("Failed to listen for", name, err);
         }
     }
+}
+
+function setupUiEventListeners() {
+    document.addEventListener("click", handleDocumentClick);
+    document.addEventListener("keydown", handleDocumentKeydown);
 }
 
 function onRecordingStarted() {
@@ -124,6 +136,21 @@ function onHotkeyConflict(payload) {
     showError("hotkey", `Hotkey conflict: ${payload.hotkey} is already in use.`);
 }
 
+function handleDocumentClick(event) {
+    const microphoneSelect = document.getElementById("microphone-select");
+    if (!microphoneSelect) return;
+
+    if (!microphoneSelect.contains(event.target)) {
+        closeMicrophoneDropdown();
+    }
+}
+
+function handleDocumentKeydown(event) {
+    if (event.key === "Escape") {
+        closeMicrophoneDropdown();
+    }
+}
+
 function showStatus(state, label, detail) {
     const panel = document.getElementById("status-panel");
     const badge = document.getElementById("status-badge");
@@ -139,6 +166,38 @@ function showStatus(state, label, detail) {
     if (text) text.textContent = label;
     if (chip) chip.textContent = detail;
     if (mode) mode.textContent = label;
+}
+
+async function minimizeWindow() {
+    try {
+        await invoke("minimize_window");
+    } catch (err) {
+        console.error("Failed to minimize window:", err);
+    }
+}
+
+async function closeWindow() {
+    try {
+        await invoke("close_window");
+    } catch (err) {
+        console.error("Failed to close window:", err);
+    }
+}
+
+async function startWindowDrag(event) {
+    if (event.button !== 0) {
+        return;
+    }
+
+    if (event.target.closest(".titlebar-btn")) {
+        return;
+    }
+
+    try {
+        await invoke("start_window_drag");
+    } catch (err) {
+        console.error("Failed to start window drag:", err);
+    }
 }
 
 function getStateLabel(state) {
@@ -192,15 +251,17 @@ function updateSettingsUI(nextSettings) {
     updatePasteModeSelector(selectedPasteMode);
 
     const audioInput = nextSettings.audio_input;
+    selectedMicName = getMicrophoneSelectionValue(audioInput);
     if (micValueEl) {
         if (!audioInput || audioInput.type === "system_default") {
             micValueEl.textContent = "System Default";
         } else if (audioInput.type === "by_name") {
-            micValueEl.textContent = audioInput.value;
+            micValueEl.textContent = getMicrophoneOptionLabel(audioInput.value);
         }
     }
 
     updateMicrophoneStatus(nextSettings);
+    updateToolbarHints(nextSettings);
 }
 
 function updateModelDownloadUI(info) {
@@ -216,10 +277,10 @@ function updateModelDownloadUI(info) {
 
 function updateHistoryUI(items) {
     const listEl = document.getElementById("history-list");
-    const countEl = document.getElementById("history-count");
+    const hintHistory = document.getElementById("hint-history");
     if (!listEl) return;
 
-    if (countEl) countEl.textContent = String(items?.length || 0);
+    if (hintHistory) hintHistory.textContent = String(items?.length || 0);
 
     if (!items || items.length === 0) {
         listEl.innerHTML = `
@@ -228,6 +289,7 @@ function updateHistoryUI(items) {
               <span class="empty-copy">Hold the hotkey and start speaking.</span>
             </li>
         `;
+        scheduleWindowResize();
         return;
     }
 
@@ -243,8 +305,7 @@ function updateHistoryUI(items) {
             `;
         })
         .join("");
-
-    updateHistoryCollapseUI();
+    scheduleWindowResize();
 }
 
 function showError(type, message) {
@@ -265,12 +326,50 @@ function showError(type, message) {
 
     banner.innerHTML = `<strong>System notice</strong>${message}${extraContent}`;
     banner.style.display = "block";
+    scheduleWindowResize();
 }
 
 function clearError() {
     currentError = null;
     const banner = document.getElementById("error-banner");
     if (banner) banner.style.display = "none";
+    scheduleWindowResize();
+}
+
+function setupWindowSizing() {
+    const appEl = document.querySelector(".app");
+    if (!appEl || resizeObserver) return;
+
+    resizeObserver = new ResizeObserver(() => {
+        scheduleWindowResize();
+    });
+    resizeObserver.observe(appEl);
+
+    window.addEventListener("load", scheduleWindowResize);
+}
+
+function scheduleWindowResize() {
+    if (resizeFrame !== null) {
+        cancelAnimationFrame(resizeFrame);
+    }
+
+    resizeFrame = requestAnimationFrame(async () => {
+        resizeFrame = null;
+
+        const shellEl = document.querySelector(".app-shell");
+        if (!shellEl) return;
+
+        const rect = shellEl.getBoundingClientRect();
+        const styles = window.getComputedStyle(shellEl);
+        const marginBottom = Number.parseFloat(styles.marginBottom) || 0;
+        const contentHeight = Math.max(COMPACT_WINDOW_HEIGHT, Math.ceil(rect.height + marginBottom));
+
+        try {
+            await invoke("sync_window_size", { contentHeight });
+        } catch (err) {
+            console.error("Failed to sync window size:", err);
+        }
+    });
 }
 
 async function updateHotkey(newHotkey) {
@@ -669,12 +768,52 @@ function escapeHtml(value) {
     return div.innerHTML;
 }
 
+function togglePanel(panel) {
+    const cards = document.querySelectorAll(".settings-drawer > .setting-card");
+    const buttons = document.querySelectorAll(".toolbar-btn");
+
+    if (activePanel === panel) {
+        cards.forEach((c) => c.classList.remove("open"));
+        buttons.forEach((b) => b.classList.remove("active"));
+        activePanel = null;
+
+        if (panel === "hotkey") {
+            hotkeyCaptureActive = false;
+            resetHotkeyCaptureState();
+        }
+        scheduleWindowResize();
+        return;
+    }
+
+    cards.forEach((c) => c.classList.remove("open"));
+    buttons.forEach((b) => b.classList.remove("active"));
+    closeMicrophoneDropdown();
+
+    if (activePanel === "hotkey" && panel !== "hotkey") {
+        hotkeyCaptureActive = false;
+        resetHotkeyCaptureState();
+    }
+
+    const card = document.getElementById(`${panel}-card`);
+    const btn = document.querySelector(`.toolbar-btn[data-panel="${panel}"]`);
+    if (card) card.classList.add("open");
+    if (btn) btn.classList.add("active");
+    activePanel = panel;
+
+    if (panel === "microphone") {
+        loadAudioDevices().then(() => populateMicrophoneSelect());
+    }
+
+    scheduleWindowResize();
+}
+
 function showEdit(field) {
     const editEl = document.getElementById(`edit-${field}`);
     const cardEl = document.getElementById(`${field}-card`);
 
     if (editEl) editEl.classList.add("active");
     if (cardEl) cardEl.classList.add("editing");
+    scheduleWindowResize();
 
     if (field === "hotkey") {
         const captureEl = document.getElementById("hotkey-capture");
@@ -682,12 +821,15 @@ function showEdit(field) {
             captureEl.focus();
         }
     } else if (field === "microphone") {
-        loadAudioDevices().then(() => populateMicrophoneSelect());
+        loadAudioDevices().then(() => {
+            populateMicrophoneSelect();
+            document.getElementById("microphone-select-trigger")?.focus();
+        });
     } else {
-        const input = editEl?.querySelector("input");
+        const input = editEl?.querySelector("input, select");
         if (input) {
             input.focus();
-            input.select();
+            if (input.select) input.select();
         }
     }
 }
@@ -701,7 +843,16 @@ function hideEdit(field) {
     if (field === "hotkey") {
         hotkeyCaptureActive = false;
         resetHotkeyCaptureState();
+    } else if (field === "microphone") {
+        closeMicrophoneDropdown();
     }
+
+    if (activePanel === field) {
+        togglePanel(field);
+        return;
+    }
+
+    scheduleWindowResize();
 }
 
 function submitHotkey() {
@@ -728,20 +879,6 @@ function submitPasteMode() {
     updatePasteMode(selectedPasteMode);
 }
 
-function toggleHistory() {
-    historyCollapsed = !historyCollapsed;
-    updateHistoryCollapseUI();
-}
-
-function updateHistoryCollapseUI() {
-    const listEl = document.getElementById("history-list");
-    const toggleEl = document.getElementById("history-toggle");
-    if (!listEl || !toggleEl) return;
-
-    listEl.dataset.collapsed = historyCollapsed ? "true" : "false";
-    toggleEl.textContent = historyCollapsed ? "Expand" : "Collapse";
-}
-
 async function loadAudioDevices() {
     try {
         audioDevices = await invoke("list_audio_inputs");
@@ -753,38 +890,152 @@ async function loadAudioDevices() {
 
 function populateMicrophoneSelect() {
     const selectEl = document.getElementById("microphone-select");
-    if (!selectEl) return;
+    const menuEl = document.getElementById("microphone-select-menu");
+    if (!selectEl || !menuEl) return;
 
     const currentSelection = settings?.audio_input;
+    const options = buildMicrophoneOptions(currentSelection);
+    const currentValue = getMicrophoneSelectionValue(currentSelection);
+    const activeValue = selectedMicName ?? currentValue;
+
+    if (selectedMicName == null) {
+        selectedMicName = activeValue;
+    }
+
+    menuEl.innerHTML = options
+        .map((option) => {
+            const isActive = option.value === activeValue;
+            return `
+                <button
+                  class="device-select-option${isActive ? " active" : ""}"
+                  type="button"
+                  role="option"
+                  aria-selected="${isActive ? "true" : "false"}"
+                  data-value="${escapeHtml(option.value)}"
+                  onclick="selectMicrophoneOption('${escapeJsSingleQuote(option.value)}')"
+                >
+                  <span class="device-select-option-title">${escapeHtml(option.label)}</span>
+                  <span class="device-select-option-meta">${escapeHtml(option.meta)}</span>
+                </button>
+            `;
+        })
+        .join("");
+
+    updateMicrophoneSelectDisplay();
+    scheduleWindowResize();
+}
+
+function buildMicrophoneOptions(currentSelection) {
+    const options = [{
+        value: "__system_default__",
+        label: "System Default",
+        meta: "Use the operating system's current default input device.",
+    }];
+
+    for (const device of audioDevices) {
+        const meta = [];
+
+        if (device.is_default) {
+            meta.push("System default");
+        }
+
+        if (device.state === "Unavailable") {
+            meta.push("Currently unavailable");
+        } else if (device.state === "FormatUnsupported") {
+            meta.push("Format unsupported");
+        } else {
+            meta.push("Available");
+        }
+
+        options.push({
+            value: device.name,
+            label: device.name + device.name_suffix,
+            meta: meta.join(" · "),
+        });
+    }
+
     const currentName =
         currentSelection && currentSelection.type === "by_name"
             ? currentSelection.value
             : null;
 
-    let html = '<option value="__system_default__">System Default</option>';
-
-    for (const device of audioDevices) {
-        const displayName = device.name + device.name_suffix;
-        const defaultTag = device.is_default ? " (Default)" : "";
-        const stateTag = device.state === "Unavailable"
-            ? " — Currently unavailable"
-            : device.state === "FormatUnsupported"
-                ? " — Format unsupported"
-                : "";
-        const label = escapeHtml(displayName + defaultTag + stateTag);
-        const selected = device.name === currentName ? " selected" : "";
-        html += `<option value="${escapeHtml(device.name)}"${selected}>${label}</option>`;
+    if (currentName && !audioDevices.some((device) => device.name === currentName)) {
+        options.push({
+            value: currentName,
+            label: currentName,
+            meta: "Previously selected · Currently unavailable",
+        });
     }
 
-    if (currentName && !audioDevices.some((d) => d.name === currentName)) {
-        html += `<option value="${escapeHtml(currentName)}" selected>${escapeHtml(currentName)} — Currently unavailable</option>`;
+    return options;
+}
+
+function getMicrophoneSelectionValue(audioInput) {
+    return audioInput && audioInput.type === "by_name"
+        ? audioInput.value
+        : "__system_default__";
+}
+
+function getMicrophoneOptionLabel(value) {
+    if (value === "__system_default__") {
+        return "System Default";
     }
 
-    selectEl.innerHTML = html;
-
-    if (!currentName) {
-        selectEl.value = "__system_default__";
+    const device = audioDevices.find((item) => item.name === value);
+    if (device) {
+        return device.name + device.name_suffix;
     }
+
+    return value;
+}
+
+function updateMicrophoneSelectDisplay() {
+    const selectEl = document.getElementById("microphone-select");
+    const valueEl = document.getElementById("microphone-select-value");
+    const triggerEl = document.getElementById("microphone-select-trigger");
+    const activeValue = selectedMicName ?? "__system_default__";
+
+    if (valueEl) {
+        valueEl.textContent = getMicrophoneOptionLabel(activeValue);
+    }
+
+    selectEl?.querySelectorAll(".device-select-option").forEach((option) => {
+        const isActive = option.dataset.value === activeValue;
+        option.classList.toggle("active", isActive);
+        option.setAttribute("aria-selected", isActive ? "true" : "false");
+    });
+
+    if (triggerEl) {
+        triggerEl.setAttribute("aria-expanded", selectEl?.classList.contains("open") ? "true" : "false");
+    }
+}
+
+function toggleMicrophoneDropdown() {
+    const selectEl = document.getElementById("microphone-select");
+    if (!selectEl) return;
+
+    const isOpen = selectEl.classList.toggle("open");
+    updateMicrophoneSelectDisplay();
+    scheduleWindowResize();
+
+    if (isOpen) {
+        selectEl.querySelector(".device-select-option.active")?.focus();
+    }
+}
+
+function closeMicrophoneDropdown() {
+    const selectEl = document.getElementById("microphone-select");
+    if (!selectEl || !selectEl.classList.contains("open")) return;
+
+    selectEl.classList.remove("open");
+    updateMicrophoneSelectDisplay();
+    scheduleWindowResize();
+}
+
+function selectMicrophoneOption(value) {
+    selectedMicName = value;
+    updateMicrophoneSelectDisplay();
+    closeMicrophoneDropdown();
 }
 
 function updateMicrophoneStatus(nextSettings) {
@@ -814,11 +1065,31 @@ function updateMicrophoneStatus(nextSettings) {
     }
 }
 
-async function submitMicrophone() {
-    const selectEl = document.getElementById("microphone-select");
-    if (!selectEl) return;
+function updateToolbarHints(nextSettings) {
+    const hintHotkey = document.getElementById("hint-hotkey");
+    const hintModel = document.getElementById("hint-model");
+    const hintMic = document.getElementById("hint-mic");
+    const hintPaste = document.getElementById("hint-paste");
+    const hintHistory = document.getElementById("hint-history");
 
-    const value = selectEl.value;
+    if (hintHotkey) hintHotkey.textContent = nextSettings.hotkey || "--";
+    if (hintModel) hintModel.textContent = nextSettings.model_name || "--";
+
+    if (hintMic) {
+        const ai = nextSettings.audio_input;
+        if (!ai || ai.type === "system_default") {
+            hintMic.textContent = "Default";
+        } else {
+            hintMic.textContent = getMicrophoneOptionLabel(ai.value);
+        }
+    }
+
+    if (hintPaste) hintPaste.textContent = formatPasteMode(nextSettings.paste_mode);
+    if (hintHistory) hintHistory.textContent = String(transcriptions.length);
+}
+
+async function submitMicrophone() {
+    const value = selectedMicName ?? "__system_default__";
     hideEdit("microphone");
 
     const audioInput =
@@ -844,6 +1115,11 @@ async function submitMicrophone() {
     }
 }
 
+function escapeJsSingleQuote(value) {
+    return value.replace(/\\/g, "\\\\").replace(/'/g, "\\'");
+}
+
+window.togglePanel = togglePanel;
 window.showEdit = showEdit;
 window.hideEdit = hideEdit;
 window.submitHotkey = submitHotkey;
@@ -854,7 +1130,11 @@ window.confirmModelDownload = confirmModelDownload;
 window.beginHotkeyCapture = beginHotkeyCapture;
 window.clearCapturedHotkey = clearCapturedHotkey;
 window.selectPasteMode = selectPasteMode;
-window.toggleHistory = toggleHistory;
+window.toggleMicrophoneDropdown = toggleMicrophoneDropdown;
+window.selectMicrophoneOption = selectMicrophoneOption;
+window.minimizeWindow = minimizeWindow;
+window.closeWindow = closeWindow;
+window.startWindowDrag = startWindowDrag;
 
 document.addEventListener("DOMContentLoaded", init);
 document.addEventListener("keydown", handleHotkeyCapture, true);

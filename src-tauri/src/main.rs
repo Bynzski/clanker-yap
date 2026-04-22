@@ -48,6 +48,10 @@ fn main() {
             voice_transcribe_lib::presentation::commands::transcription_cmds::get_transcription_history,
             voice_transcribe_lib::presentation::commands::transcription_cmds::get_status,
             voice_transcribe_lib::presentation::commands::audio_cmds::list_audio_inputs,
+            voice_transcribe_lib::presentation::commands::window_cmds::sync_window_size,
+            voice_transcribe_lib::presentation::commands::window_cmds::minimize_window,
+            voice_transcribe_lib::presentation::commands::window_cmds::close_window,
+            voice_transcribe_lib::presentation::commands::window_cmds::start_window_drag,
         ])
         .setup(move |app| {
             tracing::info!("Tauri app setup starting");

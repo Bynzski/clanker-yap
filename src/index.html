@@ -10,9 +10,27 @@
   <body>
     <div class="app-shell">
       <div class="app-noise" aria-hidden="true"></div>
+      <header class="titlebar" onmousedown="startWindowDrag(event)">
+        <div class="titlebar-brand">
+          <span class="titlebar-dot" aria-hidden="true"></span>
+          <span class="titlebar-title">Clanker Yap</span>
+        </div>
+        <div class="titlebar-actions">
+          <button class="titlebar-btn" type="button" aria-label="Minimize window" onclick="minimizeWindow()">
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M5 11h14v2H5z" />
+            </svg>
+          </button>
+          <button class="titlebar-btn titlebar-btn-close" type="button" aria-label="Close window" onclick="closeWindow()">
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M18.3 5.71 12 12l6.3 6.29-1.41 1.41L10.59 13.41 4.29 19.7 2.88 18.29 9.17 12 2.88 5.71 4.29 4.3l6.3 6.29 6.29-6.3z" />
+            </svg>
+          </button>
+        </div>
+      </header>
       <main class="app">
         <header class="hero">
-          <div class="hero-copy">
+          <div class="hero-top">
             <div class="eyebrow">
               <span class="eyebrow-icon" aria-hidden="true">
                 <svg viewBox="0 0 24 24" role="img">
@@ -24,10 +42,6 @@
               Local dictation
             </div>
             <h1 class="app-title">Voice Transcription</h1>
-            <p class="hero-text">
-              Hold the shortcut, speak naturally, release to transcribe and paste
-              into the active field.
-            </p>
           </div>
 
           <section class="status-panel" id="status-panel" aria-live="polite">
@@ -46,216 +60,222 @@
               <span class="wave-bar"></span>
               <span class="wave-bar"></span>
             </div>
-            <div class="status-metrics">
-              <div class="metric-card">
-                <span class="metric-label">Mode</span>
-                <strong class="metric-value" id="status-mode">Loading</strong>
-              </div>
-              <div class="metric-card">
-                <span class="metric-label">Recent Items</span>
-                <strong class="metric-value" id="history-count">0</strong>
-              </div>
-            </div>
           </section>
         </header>
 
-        <section class="panel panel-settings">
-          <div class="panel-heading">
-            <div>
-              <p class="panel-kicker">Configuration</p>
-              <h2>Session settings</h2>
-            </div>
-            <p class="panel-note">Applies to local dictation on this machine.</p>
-          </div>
+        <nav class="toolbar" aria-label="Settings">
+          <button class="toolbar-btn" type="button" data-panel="hotkey" onclick="togglePanel('hotkey')" title="Hotkey">
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M7 4a3 3 0 0 0-3 3v10a3 3 0 0 0 3 3h10a3 3 0 0 0 3-3V7a3 3 0 0 0-3-3H7Zm1 5a1 1 0 1 1 0 2H7a1 1 0 1 1 0-2h1Zm3 0a1 1 0 1 1 0 2h-1a1 1 0 1 1 0-2h1Zm3 0a1 1 0 1 1 0 2h-1a1 1 0 1 1 0-2h1Zm3 0a1 1 0 1 1 0 2h-1a1 1 0 1 1 0-2h1Zm-8 4h8a1 1 0 1 1 0 2H9a1 1 0 1 1 0-2Z"/>
+            </svg>
+            <span class="toolbar-label">Hotkey</span>
+            <span class="toolbar-hint" id="hint-hotkey">--</span>
+          </button>
+          <button class="toolbar-btn" type="button" data-panel="model" onclick="togglePanel('model')" title="Model">
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M10 4a2 2 0 0 0-2 2v2H6a2 2 0 0 0-2 2v7a3 3 0 0 0 3 3h10a3 3 0 0 0 3-3v-7a2 2 0 0 0-2-2h-2V6a2 2 0 0 0-2-2h-4Zm0 4V6h4v2h-4Zm-3 4h10v5a1 1 0 0 1-1 1H8a1 1 0 0 1-1-1v-5Z"/>
+            </svg>
+            <span class="toolbar-label">Model</span>
+            <span class="toolbar-hint" id="hint-model">--</span>
+          </button>
+          <button class="toolbar-btn" type="button" data-panel="microphone" onclick="togglePanel('microphone')" title="Microphone">
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M12 3a4 4 0 0 0-4 4v5a4 4 0 0 0 8 0V7a4 4 0 0 0-4-4Zm-6 9a1 1 0 1 1 2 0 4 4 0 1 0 8 0 1 1 0 1 1 2 0 5.99 5.99 0 0 1-5 5.91V21h3a1 1 0 1 1 0 2H8a1 1 0 1 1 0-2h3v-3.09A5.99 5.99 0 0 1 6 12Z"/>
+            </svg>
+            <span class="toolbar-label">Mic</span>
+            <span class="toolbar-hint" id="hint-mic">Default</span>
+          </button>
+          <button class="toolbar-btn" type="button" data-panel="paste" onclick="togglePanel('paste')" title="Paste mode">
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M9 3a2 2 0 0 0-2 2v1H6a2 2 0 0 0-2 2v9a4 4 0 0 0 4 4h8a4 4 0 0 0 4-4V8a2 2 0 0 0-2-2h-1V5a2 2 0 0 0-2-2H9Zm0 3V5h6v1H9Zm-1 3h8v8a2 2 0 0 1-2 2H10a2 2 0 0 1-2-2V9Z"/>
+            </svg>
+            <span class="toolbar-label">Paste</span>
+            <span class="toolbar-hint" id="hint-paste">Auto</span>
+          </button>
+          <button class="toolbar-btn" type="button" data-panel="history" onclick="togglePanel('history')" title="History">
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2Zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8Zm.5-13H11v6l5.25 3.15.75-1.23-4.5-2.67V7Z"/>
+            </svg>
+            <span class="toolbar-label">History</span>
+            <span class="toolbar-hint" id="hint-history">0</span>
+          </button>
+        </nav>
 
-          <div class="settings-grid">
-            <article class="setting-card" id="hotkey-card">
-              <div class="setting-card-head">
-                <div class="setting-title-group">
-                  <div class="setting-icon" aria-hidden="true">
-                    <svg viewBox="0 0 24 24" role="img">
-                      <path
-                        d="M7 4a3 3 0 0 0-3 3v10a3 3 0 0 0 3 3h10a3 3 0 0 0 3-3V7a3 3 0 0 0-3-3H7Zm1 5a1 1 0 1 1 0 2H7a1 1 0 1 1 0-2h1Zm3 0a1 1 0 1 1 0 2h-1a1 1 0 1 1 0-2h1Zm3 0a1 1 0 1 1 0 2h-1a1 1 0 1 1 0-2h1Zm3 0a1 1 0 1 1 0 2h-1a1 1 0 1 1 0-2h1Zm-8 4h8a1 1 0 1 1 0 2H9a1 1 0 1 1 0-2Z"
-                      />
-                    </svg>
-                  </div>
-                  <div>
-                    <h3>Hotkey</h3>
-                    <p>Push-to-talk shortcut</p>
-                  </div>
-                </div>
-                <button class="ghost-button" type="button" onclick="beginHotkeyCapture()">
-                  Record shortcut
-                </button>
-              </div>
-
-              <div class="setting-body">
-                <code class="setting-primary" id="hotkey-value">--</code>
-                <p class="setting-tertiary" id="hotkey-display">Press a shortcut with at least one modifier.</p>
-                <div class="setting-edit" id="edit-hotkey">
-                  <div class="hotkey-capture" id="hotkey-capture" tabindex="0">
-                    <span class="hotkey-capture-label" id="hotkey-capture-label">Press desired shortcut</span>
-                    <strong class="hotkey-capture-value" id="hotkey-capture-value">Waiting for input</strong>
-                    <span class="hotkey-capture-hint" id="hotkey-capture-hint">
-                      Use at least one modifier key plus a non-modifier key.
-                    </span>
-                  </div>
-                  <div class="setting-actions">
-                    <button class="primary-button" type="button" id="save-hotkey-btn" onclick="submitHotkey()" disabled>
-                      Save
-                    </button>
-                    <button class="ghost-button" type="button" onclick="clearCapturedHotkey()">
-                      Clear
-                    </button>
-                    <button class="ghost-button" type="button" onclick="hideEdit('hotkey')">
-                      Cancel
-                    </button>
-                  </div>
+        <section class="settings-drawer" id="settings-drawer">
+          <article class="setting-card" id="hotkey-card">
+            <div class="setting-card-head">
+              <div class="setting-title-group">
+                <div>
+                  <h3>Hotkey</h3>
+                  <p>Push-to-talk shortcut</p>
                 </div>
               </div>
-            </article>
-
-            <article class="setting-card setting-card-wide" id="model-card">
-              <div class="setting-card-head">
-                <div class="setting-title-group">
-                  <div class="setting-icon" aria-hidden="true">
-                    <svg viewBox="0 0 24 24" role="img">
-                      <path
-                        d="M10 4a2 2 0 0 0-2 2v2H6a2 2 0 0 0-2 2v7a3 3 0 0 0 3 3h10a3 3 0 0 0 3-3v-7a2 2 0 0 0-2-2h-2V6a2 2 0 0 0-2-2h-4Zm0 4V6h4v2h-4Zm-3 4h10v5a1 1 0 0 1-1 1H8a1 1 0 0 1-1-1v-5Z"
-                      />
-                    </svg>
-                  </div>
-                  <div>
-                    <h3>Model</h3>
-                    <p>Local Whisper model path</p>
-                  </div>
-                </div>
-                <div class="setting-card-controls">
-                  <button class="ghost-button" type="button" id="download-model-btn" onclick="confirmModelDownload()">
-                    Download base.en
-                  </button>
-                  <button class="ghost-button" type="button" onclick="showEdit('model')">
-                    Edit
-                  </button>
-                </div>
-              </div>
-
-              <div class="setting-body">
-                <strong class="setting-primary" id="model-name">--</strong>
-                <p class="setting-secondary" id="model-path">--</p>
-                <p class="setting-tertiary" id="model-download-meta">Default model download unavailable.</p>
-                <div class="setting-edit" id="edit-model">
-                  <input type="text" id="model-input" placeholder="/full/path/to/model.bin" />
-                  <div class="setting-actions">
-                    <button class="primary-button" type="button" onclick="submitModelPath()">
-                      Save
-                    </button>
-                    <button class="ghost-button" type="button" onclick="hideEdit('model')">
-                      Cancel
-                    </button>
-                  </div>
-                </div>
-              </div>
-            </article>
-
-            <article class="setting-card" id="microphone-card">
-              <div class="setting-card-head">
-                <div class="setting-title-group">
-                  <div class="setting-icon" aria-hidden="true">
-                    <svg viewBox="0 0 24 24" role="img">
-                      <path
-                        d="M12 3a4 4 0 0 0-4 4v5a4 4 0 0 0 8 0V7a4 4 0 0 0-4-4Zm-6 9a1 1 0 1 1 2 0 4 4 0 1 0 8 0 1 1 0 1 1 2 0 5.99 5.99 0 0 1-5 5.91V21h3a1 1 0 1 1 0 2H8a1 1 0 1 1 0-2h3v-3.09A5.99 5.99 0 0 1 6 12Z"
-                      />
-                    </svg>
-                  </div>
-                  <div>
-                    <h3>Microphone</h3>
-                    <p>Audio input device</p>
-                  </div>
-                </div>
-                <button class="ghost-button" type="button" onclick="showEdit('microphone')">
-                  Edit
-                </button>
-              </div>
-
-              <div class="setting-body">
-                <strong class="setting-primary" id="microphone-value">System Default</strong>
-                <p class="setting-tertiary" id="microphone-status"></p>
-                <div class="setting-edit" id="edit-microphone">
-                  <select class="setting-select" id="microphone-select"></select>
-                  <div class="setting-actions">
-                    <button class="primary-button" type="button" onclick="submitMicrophone()">
-                      Save
-                    </button>
-                    <button class="ghost-button" type="button" onclick="hideEdit('microphone')">
-                      Cancel
-                    </button>
-                  </div>
-                </div>
-              </div>
-            </article>
-
-            <article class="setting-card" id="paste-card">
-              <div class="setting-card-head">
-                <div class="setting-title-group">
-                  <div class="setting-icon" aria-hidden="true">
-                    <svg viewBox="0 0 24 24" role="img">
-                      <path d="M9 3a2 2 0 0 0-2 2v1H6a2 2 0 0 0-2 2v9a4 4 0 0 0 4 4h8a4 4 0 0 0 4-4V8a2 2 0 0 0-2-2h-1V5a2 2 0 0 0-2-2H9Zm0 3V5h6v1H9Zm-1 3h8v8a2 2 0 0 1-2 2H10a2 2 0 0 1-2-2V9Z"/>
-                    </svg>
-                  </div>
-                  <div>
-                    <h3>Paste mode</h3>
-                    <p>Choose how text is injected</p>
-                  </div>
-                </div>
-                <button class="ghost-button" type="button" onclick="showEdit('paste')">
-                  Edit
-                </button>
-              </div>
-
-              <div class="setting-body">
-                <strong class="setting-primary" id="paste-mode-value">Auto</strong>
-                <p class="setting-tertiary" id="paste-mode-description">Uses standard paste behavior by default.</p>
-                <div class="setting-edit" id="edit-paste">
-                  <div class="segmented-control" id="paste-mode-input" role="radiogroup" aria-label="Paste mode">
-                    <button class="segment-button" type="button" data-value="auto" onclick="selectPasteMode('auto')">Auto</button>
-                    <button class="segment-button" type="button" data-value="standard" onclick="selectPasteMode('standard')">Standard</button>
-                    <button class="segment-button" type="button" data-value="terminal" onclick="selectPasteMode('terminal')">Terminal</button>
-                  </div>
-                  <div class="setting-actions">
-                    <button class="primary-button" type="button" onclick="submitPasteMode()">
-                      Save
-                    </button>
-                    <button class="ghost-button" type="button" onclick="hideEdit('paste')">
-                      Cancel
-                    </button>
-                  </div>
-                </div>
-              </div>
-            </article>
-          </div>
-        </section>
-
-        <section class="panel panel-history">
-          <div class="panel-heading">
-            <div>
-              <p class="panel-kicker">History</p>
-              <h2>Recent transcriptions</h2>
-            </div>
-            <div class="panel-heading-actions">
-              <p class="panel-note">Newest entries appear first.</p>
-              <button class="ghost-button ghost-button-compact" type="button" id="history-toggle" onclick="toggleHistory()">
-                Collapse
+              <button class="ghost-button" type="button" onclick="beginHotkeyCapture()">
+                Record shortcut
               </button>
             </div>
-          </div>
 
-          <ul class="history-list" id="history-list" data-collapsed="false">
-            <li class="empty-state">
-              <span class="empty-title">No transcriptions yet</span>
-              <span class="empty-copy">Hold the hotkey and start speaking.</span>
-            </li>
-          </ul>
+            <div class="setting-body">
+              <code class="setting-primary" id="hotkey-value">--</code>
+              <p class="setting-tertiary" id="hotkey-display">Press a shortcut with at least one modifier.</p>
+              <div class="setting-edit" id="edit-hotkey">
+                <div class="hotkey-capture" id="hotkey-capture" tabindex="0">
+                  <span class="hotkey-capture-label" id="hotkey-capture-label">Press desired shortcut</span>
+                  <strong class="hotkey-capture-value" id="hotkey-capture-value">Waiting for input</strong>
+                  <span class="hotkey-capture-hint" id="hotkey-capture-hint">
+                    Use at least one modifier key plus a non-modifier key.
+                  </span>
+                </div>
+                <div class="setting-actions">
+                  <button class="primary-button" type="button" id="save-hotkey-btn" onclick="submitHotkey()" disabled>
+                    Save
+                  </button>
+                  <button class="ghost-button" type="button" onclick="clearCapturedHotkey()">
+                    Clear
+                  </button>
+                  <button class="ghost-button" type="button" onclick="hideEdit('hotkey')">
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            </div>
+          </article>
+
+          <article class="setting-card" id="model-card">
+            <div class="setting-card-head">
+              <div class="setting-title-group">
+                <div>
+                  <h3>Model</h3>
+                  <p>Local Whisper model path</p>
+                </div>
+              </div>
+              <div class="setting-card-controls">
+                <button class="ghost-button" type="button" id="download-model-btn" onclick="confirmModelDownload()">
+                  Download base.en
+                </button>
+                <button class="ghost-button" type="button" onclick="showEdit('model')">
+                  Edit
+                </button>
+              </div>
+            </div>
+
+            <div class="setting-body">
+              <strong class="setting-primary" id="model-name">--</strong>
+              <p class="setting-secondary" id="model-path">--</p>
+              <p class="setting-tertiary" id="model-download-meta">Default model download unavailable.</p>
+              <div class="setting-edit" id="edit-model">
+                <input type="text" id="model-input" placeholder="/full/path/to/model.bin" />
+                <div class="setting-actions">
+                  <button class="primary-button" type="button" onclick="submitModelPath()">
+                    Save
+                  </button>
+                  <button class="ghost-button" type="button" onclick="hideEdit('model')">
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            </div>
+          </article>
+
+          <article class="setting-card" id="microphone-card">
+            <div class="setting-card-head">
+              <div class="setting-title-group">
+                <div>
+                  <h3>Microphone</h3>
+                  <p>Audio input device</p>
+                </div>
+              </div>
+              <button class="ghost-button" type="button" onclick="showEdit('microphone')">
+                Edit
+              </button>
+            </div>
+
+            <div class="setting-body">
+              <strong class="setting-primary" id="microphone-value">System Default</strong>
+              <p class="setting-tertiary" id="microphone-status"></p>
+              <div class="setting-edit" id="edit-microphone">
+                <div class="device-select" id="microphone-select">
+                  <button
+                    class="device-select-trigger"
+                    type="button"
+                    id="microphone-select-trigger"
+                    aria-haspopup="listbox"
+                    aria-expanded="false"
+                    onclick="toggleMicrophoneDropdown()"
+                  >
+                    <span class="device-select-value" id="microphone-select-value">System Default</span>
+                    <span class="device-select-chevron" aria-hidden="true">
+                      <svg viewBox="0 0 24 24">
+                        <path d="M7 10l5 5 5-5z" />
+                      </svg>
+                    </span>
+                  </button>
+                  <div class="device-select-menu" id="microphone-select-menu" role="listbox" aria-label="Microphone input"></div>
+                </div>
+                <div class="setting-actions">
+                  <button class="primary-button" type="button" onclick="submitMicrophone()">
+                    Save
+                  </button>
+                  <button class="ghost-button" type="button" onclick="hideEdit('microphone')">
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            </div>
+          </article>
+
+          <article class="setting-card" id="paste-card">
+            <div class="setting-card-head">
+              <div class="setting-title-group">
+                <div>
+                  <h3>Paste mode</h3>
+                  <p>Choose how text is injected</p>
+                </div>
+              </div>
+              <button class="ghost-button" type="button" onclick="showEdit('paste')">
+                Edit
+              </button>
+            </div>
+
+            <div class="setting-body">
+              <strong class="setting-primary" id="paste-mode-value">Auto</strong>
+              <p class="setting-tertiary" id="paste-mode-description">Uses standard paste behavior by default.</p>
+              <div class="setting-edit" id="edit-paste">
+                <div class="segmented-control" id="paste-mode-input" role="radiogroup" aria-label="Paste mode">
+                  <button class="segment-button" type="button" data-value="auto" onclick="selectPasteMode('auto')">Auto</button>
+                  <button class="segment-button" type="button" data-value="standard" onclick="selectPasteMode('standard')">Standard</button>
+                  <button class="segment-button" type="button" data-value="terminal" onclick="selectPasteMode('terminal')">Terminal</button>
+                </div>
+                <div class="setting-actions">
+                  <button class="primary-button" type="button" onclick="submitPasteMode()">
+                    Save
+                  </button>
+                  <button class="ghost-button" type="button" onclick="hideEdit('paste')">
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            </div>
+          </article>
+          <article class="setting-card" id="history-card">
+            <div class="setting-card-head">
+              <div class="setting-title-group">
+                <div>
+                  <h3>Recent transcriptions</h3>
+                  <p>Newest entries appear first</p>
+                </div>
+              </div>
+            </div>
+
+            <div class="setting-body">
+              <ul class="history-list" id="history-list">
+                <li class="empty-state">
+                  <span class="empty-title">No transcriptions yet</span>
+                  <span class="empty-copy">Hold the hotkey and start speaking.</span>
+                </li>
+              </ul>
+            </div>
+          </article>
         </section>
 
         <div class="error-banner" id="error-banner" role="alert"></div>

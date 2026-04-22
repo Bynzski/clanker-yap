@@ -70,8 +70,7 @@ pub fn on_press(app: &AppHandle, state: &AppState) {
                             (d, name)
                         }
                         None => {
-                            let error_message =
-                                "No audio input devices available".to_string();
+                            let error_message = "No audio input devices available".to_string();
                             set_last_error(state, error_message.clone());
                             let _ = app.emit(
                                 "transcription-error",

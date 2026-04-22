@@ -15,9 +15,9 @@
       "label": "main",
       "title": "Clanker Yap",
       "width": 480,
-      "height": 560,
-      "resizable": true,
-      "decorations": true,
+      "height": 196,
+      "resizable": false,
+      "decorations": false,
       "center": true
     }],
     "security": {
