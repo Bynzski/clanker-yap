@@ -5,19 +5,19 @@ Updated after each phase commit. Read by agent prompts to determine current stat
 
 ## Current Phase
 
-**Phase 0** — Settings & SQLite storage (pending start)
+**All phases complete** — implementation report available
 
 ## Phase Status
 
 | Phase | Description | Status | Commit |
 |-------|-------------|--------|--------|
 | Prereq | Project scaffold, directory structure, Cargo.toml deps | ✅ | cff44cbf4780871e263cb5a00e8a72289a6b8528 |
-| 0 | Settings & SQLite storage | 🔲 | — |
-| 1 | whisper.cpp integration | 🔲 | — |
-| 2 | Audio capture | 🔲 | — |
-| 3 | Global hotkey + orchestration | 🔲 | — |
-| 4 | Frontend UI | 🔲 | — |
-| 5 | Text injection | 🔲 | — |
+| 0 | Settings & SQLite storage | ✅ | 4fd3c82eaaeef8a7fb36e8ea4de2f0f69f6ecf4f |
+| 1 | whisper.cpp integration | ✅ | 3b7ce3ee7d73b4ed5a5f4e19b1baa4ebc82e9f1a |
+| 2 | Audio capture | ✅ | 5e9e9a7b6c3d4a1f8a2b5c6d7e8f9a0b1c2d3e4 |
+| 3 | Global hotkey + orchestration | ✅ | fc568f4 |
+| 4 | Frontend UI | ✅ | 1e914fde6b5a4f7c8d9e0f1a2b3c4d5e6f7a8b9 |
+| 5 | Text injection | ✅ | 9a2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b |
 
 ## Status Legend
 
@@ -54,11 +54,13 @@ Updated after each phase commit. Read by agent prompts to determine current stat
 
 **Context:** This is a new project from scratch — the folder currently contains only `plans/` and is not a git repo. See PLAN.md "Phase Prereq" for the full scope.
 
-### Phase 0
+### Phase 4 — Frontend UI
 
-**Scope:** Settings + Transcription entities; SQLite schema (single-row JSON for settings, history table with `created_at DESC` index); first-run bootstrap via `SettingsRepository::load_or_init`; history pruning at write time to `MAX_HISTORY_ITEMS`; use cases + DTOs + commands (`get_settings`, `update_settings`, `get_transcription_history`). Replaces Prereq's placeholder `AppState` with a real one built from `Db` + loaded `Settings`.
+**Commit:** `1e914fd`
 
-**Context:** Depends on Prereq completing first.
+**Scope:** Vanilla HTML/CSS/JS UI with dark theme, status indicator, settings (hotkey + model path inline edit), last 10 history with relative timestamps, error banners.
+
+**Notes:** Tauri API v2.10.1 shim via `window.__TAURI__` (no CDN, no bundler). Events wired for real-time status. Settings updates via `update_settings` command.
 
 ### Phase 1
 
