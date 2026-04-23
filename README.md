@@ -1,17 +1,29 @@
 # Clanker Yap
 
-Local voice-to-text desktop app built with Tauri v2, Rust, and a vanilla HTML/JS/CSS frontend.
+Local voice-to-text desktop application built with Tauri v2, Rust, and a vanilla HTML/JS/CSS frontend.
 
-## Project Docs
+## Documentation
 
-- [LICENSE](./LICENSE)
-- [CONTRIBUTING.md](./CONTRIBUTING.md)
-- [CODE_OF_CONDUCT.md](./CODE_OF_CONDUCT.md)
-- [SECURITY.md](./SECURITY.md)
+Full documentation is available in the [`docs/`](docs/) folder:
 
-Pipeline:
+| Document | Description |
+|----------|-------------|
+| [docs/README.md](docs/README.md) | Documentation index |
+| [docs/getting-started.md](docs/getting-started.md) | Installation and setup |
+| [docs/quick-start.md](docs/quick-start.md) | Get running in 5 minutes |
+| [docs/configuration.md](docs/configuration.md) | All configuration options |
+| [docs/whisper-models.md](docs/whisper-models.md) | Model selection guide |
+| [docs/architecture.md](docs/architecture.md) | Project structure and design |
+| [docs/development.md](docs/development.md) | Local development guide |
+| [docs/build.md](docs/build.md) | Building releases |
+| [docs/troubleshooting.md](docs/troubleshooting.md) | Common issues and solutions |
+| [docs/faq.md](docs/faq.md) | Frequently asked questions |
+| [docs/commands.md](docs/commands.md) | Tauri command reference |
+| [docs/api.md](docs/api.md) | Internal Rust API docs |
 
-```text
+## Pipeline
+
+```
 Hold hotkey -> record -> release hotkey -> transcribe locally -> paste text
 ```
 
@@ -57,13 +69,13 @@ npm install
 
 The app expects a Whisper GGML model file at:
 
-```text
+```
 ~/.local/share/voice-transcribe/ggml-base.en.bin
 ```
 
 Download one from:
 
-- <https://huggingface.co/ggerganov/whisper.cpp/tree/main>
+- [ggml-org/whisper.cpp](https://huggingface.co/ggml-org/whisper.cpp/tree/main)
 
 `ggml-base.en.bin` is the default expected model.
 
@@ -107,21 +119,37 @@ Current Linux bundle target:
 
 Expected output:
 
-```text
+```
 src-tauri/target/debug/bundle/deb/Clanker Yap_0.1.0_amd64.deb
 ```
 
 ## Project Layout
 
-```text
+```
 src/                    frontend
-src-tauri/src/domain/   core types and errors
-src-tauri/src/application/
-src-tauri/src/infrastructure/
-src-tauri/src/presentation/
+src-tauri/src/          Rust backend
+├── domain/             core types and errors
+├── application/        use cases and state
+├── infrastructure/     external integrations
+│   ├── audio/         recording and resampling
+│   ├── whisper/       ML transcription
+│   ├── paste/        clipboard injection
+│   └── persistence/   SQLite storage
+└── presentation/      Tauri commands
 ```
 
-## Notes
+## License
 
-- Tauri bundle targets are intentionally narrowed to Linux `.deb` for faster local verification.
-- If you plan to publish the app under a stable identifier, review `src-tauri/tauri.conf.json` before release.
+See [LICENSE](./LICENSE)
+
+## Contributing
+
+See [CONTRIBUTING.md](./CONTRIBUTING.md)
+
+## Code of Conduct
+
+See [CODE_OF_CONDUCT.md](./CODE_OF_CONDUCT.md)
+
+## Security
+
+See [SECURITY.md](./SECURITY.md)
