@@ -5,7 +5,7 @@ Updated after each phase commit. Read by agent prompts to determine current stat
 
 ## Current Phase
 
-**Phase 1** — ✅ Complete
+**Phase 2** — ✅ Complete
 
 ## Phase Status
 
@@ -13,7 +13,7 @@ Updated after each phase commit. Read by agent prompts to determine current stat
 |-------|-------------|--------|--------|
 | 0 | Overlay window infra + GTK Layer Shell + capabilities | ✅ | — |
 | 1 | FFT-based audio frequency band extraction | ✅ | — |
-| 2 | Overlay frontend (HTML/CSS/JS pill) | 🔲 | — |
+| 2 | Overlay frontend (HTML/CSS/JS pill) | ✅ | — |
 | 3 | Wire overlay + level emission to orchestrator | 🔲 | — |
 | 4 | Polish, animations, and edge cases | 🔲 | — |
 

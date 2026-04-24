@@ -5,15 +5,297 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Recording Overlay</title>
     <style>
-        html, body {
+        @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&display=swap');
+
+        html,
+        body {
             margin: 0;
             padding: 0;
             background: transparent;
             overflow: hidden;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            align-items: flex-end;
+            justify-content: center;
+        }
+
+        /* Pill container — hidden by default, controlled by JS state */
+        .pill {
+            position: relative;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 10px 16px;
+            border-radius: 999px;
+            background: rgba(18, 18, 18, 0.85);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            box-shadow:
+                0 2px 12px rgba(0, 0, 0, 0.3),
+                0 0 0 1px rgba(0, 0, 0, 0.1);
+
+            /* Start hidden, animated in by JS */
+            opacity: 0;
+            transform: scaleX(0.3) scaleY(0.8);
+            pointer-events: none;
+        }
+
+        /* Scale-in animation — applied by JS when entering recording state */
+        .pill.visible {
+            opacity: 1;
+            transform: scaleX(1) scaleY(1);
+            transition:
+                opacity 200ms cubic-bezier(0.34, 1.56, 0.64, 1),
+                transform 200ms cubic-bezier(0.34, 1.56, 0.64, 1);
+            pointer-events: none;
+        }
+
+        /* Scale-out animation — applied by JS when exiting */
+        .pill.hiding {
+            opacity: 0;
+            transform: scaleX(0.3) scaleY(0.8);
+            transition:
+                opacity 150ms ease-out,
+                transform 150ms ease-out;
+            pointer-events: none;
+        }
+
+        /* EQ bar container */
+        .eq-bars {
+            display: flex;
+            align-items: center;
+            gap: 3px;
+            height: 28px;
+        }
+
+        /* Individual bar */
+        .eq-bar {
+            width: 4px;
+            border-radius: 999px;
+            background: linear-gradient(180deg, #3fb950 0%, #58a6ff 100%);
+            min-height: 4px;
+            transform-origin: bottom;
+            /* Smooth height transitions */
+            transition: height 60ms linear;
+        }
+
+        /* Recording state: green-cyan gradient bars */
+        .pill[data-state="recording"] .eq-bar {
+            background: linear-gradient(180deg, #3fb950 0%, #58a6ff 100%);
+            box-shadow: 0 0 6px rgba(63, 185, 80, 0.4);
+        }
+
+        /* Processing state: amber pulsing */
+        .pill[data-state="processing"] .eq-bar {
+            background: rgba(194, 141, 61, 0.7);
+            animation: pulse-bar 1.2s ease-in-out infinite;
+        }
+
+        .pill[data-state="processing"] .eq-bar:nth-child(1) { animation-delay: 0ms; }
+        .pill[data-state="processing"] .eq-bar:nth-child(2) { animation-delay: 80ms; }
+        .pill[data-state="processing"] .eq-bar:nth-child(3) { animation-delay: 160ms; }
+        .pill[data-state="processing"] .eq-bar:nth-child(4) { animation-delay: 240ms; }
+        .pill[data-state="processing"] .eq-bar:nth-child(5) { animation-delay: 320ms; }
+        .pill[data-state="processing"] .eq-bar:nth-child(6) { animation-delay: 400ms; }
+        .pill[data-state="processing"] .eq-bar:nth-child(7) { animation-delay: 480ms; }
+
+        /* Status text */
+        .status-text {
+            font-family: "JetBrains Mono", "SFMono-Regular", "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+            font-size: 11px;
+            font-weight: 600;
+            letter-spacing: 0.04em;
+            color: #e8e8e8;
+            white-space: nowrap;
+            min-width: 68px;
+        }
+
+        .pill[data-state="processing"] .status-text {
+            color: #c28d3d;
+        }
+
+        /* Subtle recording dot */
+        .record-dot {
+            width: 7px;
+            height: 7px;
+            border-radius: 50%;
+            background: #3fb950;
+            box-shadow: 0 0 8px rgba(63, 185, 80, 0.6);
+            flex-shrink: 0;
+        }
+
+        .pill[data-state="processing"] .record-dot {
+            background: #c28d3d;
+            box-shadow: 0 0 8px rgba(194, 141, 61, 0.5);
+            animation: pulse-dot 1.2s ease-in-out infinite;
+        }
+
+        @keyframes pulse-bar {
+            0%, 100% { opacity: 0.5; transform: scaleY(0.5); }
+            50% { opacity: 1; transform: scaleY(1); }
+        }
+
+        @keyframes pulse-dot {
+            0%, 100% { opacity: 0.5; }
+            50% { opacity: 1; }
         }
     </style>
 </head>
 <body>
-    <!-- Placeholder — Phase 2 will replace this with the full pill UI -->
+    <div class="pill" id="pill" data-state="">
+        <div class="record-dot"></div>
+        <div class="eq-bars" id="eqBars">
+            <div class="eq-bar" id="bar0"></div>
+            <div class="eq-bar" id="bar1"></div>
+            <div class="eq-bar" id="bar2"></div>
+            <div class="eq-bar" id="bar3"></div>
+            <div class="eq-bar" id="bar4"></div>
+            <div class="eq-bar" id="bar5"></div>
+            <div class="eq-bar" id="bar6"></div>
+        </div>
+        <div class="status-text" id="statusText">Recording</div>
+    </div>
+
+    <script>
+        // No <script src="vendor/tauri.js"> — use window.__TAURI__ directly (GAP-13)
+        // window.__TAURI__ is injected into ALL windows via withGlobalTauri: true
+        const { listen } = window.__TAURI__.event;
+
+        // DOM refs
+        const pill = document.getElementById('pill');
+        const statusText = document.getElementById('statusText');
+        const barEls = [
+            document.getElementById('bar0'),
+            document.getElementById('bar1'),
+            document.getElementById('bar2'),
+            document.getElementById('bar3'),
+            document.getElementById('bar4'),
+            document.getElementById('bar5'),
+            document.getElementById('bar6'),
+        ];
+
+        // JS-side exponential smoothing — mirrors Rust EqState attack/decay (GAP-2 overlay frontend)
+        // Keyless-style: attack = 0.45 (fast rise), decay = 0.3 (slow fall)
+        // We store one smoothed value per band, initialised to 0
+        const smoothed = new Float32Array(7).fill(0);
+        const ATTACK  = 0.45;
+        const DECAY   = 0.30;
+        const MAX_BAR_HEIGHT_PX = 28;
+        const MIN_BAR_HEIGHT_PX = 4;
+
+        function smoothBand(smoothedVal, rawVal) {
+            if (rawVal > smoothedVal) {
+                // Attack: move quickly toward the new value
+                return smoothedVal + ATTACK * (rawVal - smoothedVal);
+            } else {
+                // Decay: fall slowly back toward silence
+                return smoothedVal - DECAY * (smoothedVal - rawVal);
+            }
+        }
+
+        function updateBars(rawBands) {
+            // rawBands is Vec<f32> with 7 values, 0.0–1.0, from Rust EqState
+            if (!rawBands || rawBands.length < 7) return;
+
+            for (let i = 0; i < 7; i++) {
+                const raw = rawBands[i] !== undefined ? rawBands[i] : 0;
+                smoothed[i] = smoothBand(smoothed[i], raw);
+
+                // Map smoothed value (0–1) to pixel height
+                const height = MIN_BAR_HEIGHT_PX + smoothed[i] * (MAX_BAR_HEIGHT_PX - MIN_BAR_HEIGHT_PX);
+                barEls[i].style.height = height.toFixed(1) + 'px';
+            }
+        }
+
+        // Animation state machine
+        let isVisible = false;
+        let isHiding  = false;
+        let pendingHideTimer = null;
+
+        function showPill(state) {
+            // Cancel any pending hide
+            if (pendingHideTimer !== null) {
+                clearTimeout(pendingHideTimer);
+                pendingHideTimer = null;
+            }
+            isHiding = false;
+
+            // Switch state immediately (even while hidden) so pill is correct when shown
+            pill.dataset.state = state;
+            statusText.textContent = state === 'recording' ? 'Recording' : 'Processing...';
+
+            pill.classList.remove('hiding');
+
+            if (!isVisible) {
+                // Reset smoothing so bars don't jump
+                smoothed.fill(0);
+                barEls.forEach(el => { el.style.height = MIN_BAR_HEIGHT_PX + 'px'; });
+
+                isVisible = true;
+                pill.classList.add('visible');
+            } else {
+                // Already visible — just update the state class (CSS handles the transition)
+                // Force reflow to restart animation if coming from processing
+                pill.classList.remove('visible');
+                void pill.offsetWidth; // read a layout property to force reflow
+                pill.classList.add('visible');
+            }
+        }
+
+        function hidePill() {
+            if (!isVisible) return;
+
+            if (pendingHideTimer !== null) {
+                clearTimeout(pendingHideTimer);
+            }
+
+            isHiding = true;
+            pill.classList.remove('visible');
+            pill.classList.add('hiding');
+
+            // After 150ms animation, fully hide
+            pendingHideTimer = setTimeout(() => {
+                pill.classList.remove('hiding');
+                pill.dataset.state = '';
+                isVisible = false;
+                isHiding = false;
+                pendingHideTimer = null;
+            }, 160);
+        }
+
+        // ── Event listeners ─────────────────────────────────────────────────────
+
+        // recording-started → show pill in recording state
+        listen('recording-started', function (event) {
+            showPill('recording');
+        });
+
+        // recording-stopped → transition to processing state (pill stays visible)
+        listen('recording-stopped', function (event) {
+            // payload: { duration_ms: i64 }
+            showPill('processing');
+        });
+
+        // mic-level → update EQ bar heights
+        listen('mic-level', function (event) {
+            // payload: Vec<f32> (7 values, 0.0–1.0)
+            const bands = event.payload;
+            updateBars(bands);
+        });
+
+        // transcription-complete → hide pill
+        listen('transcription-complete', function (event) {
+            // payload: { text: String, duration_ms: i64 }
+            hidePill();
+        });
+
+        // transcription-error → hide pill
+        listen('transcription-error', function (event) {
+            // payload: { error: String }
+            hidePill();
+        });
+    </script>
 </body>
 </html>
