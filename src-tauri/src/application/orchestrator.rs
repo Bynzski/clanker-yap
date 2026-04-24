@@ -34,10 +34,13 @@ fn clear_last_error(state: &AppState) {
 
 /// Called when the global hotkey is pressed — starts recording.
 pub fn on_press(app: &AppHandle, state: &AppState) {
+    tracing::info!("on_press called");
     let recording = state.recording.lock();
 
     match &*recording {
-        RecordingState::Idle => {}
+        RecordingState::Idle => {
+            tracing::debug!("on_press: transitioning from Idle -> Recording");
+        }
         RecordingState::Recording { .. } => {
             tracing::debug!("Hotkey pressed while already recording — debounced");
             return;
@@ -147,12 +150,24 @@ pub fn on_press(app: &AppHandle, state: &AppState) {
 
 /// Called when the global hotkey is released — triggers the full pipeline.
 pub fn on_release(app: &AppHandle, state: &AppState) {
+    tracing::info!("on_release called");
     let duration_ms = {
         let mut recording = state.recording.lock();
         match std::mem::replace(&mut *recording, RecordingState::Processing) {
-            RecordingState::Recording { started_at } => started_at.elapsed().as_millis() as i64,
-            _ => {
-                tracing::warn!("Release received without matching press — ignored");
+            RecordingState::Recording { started_at } => {
+                tracing::debug!("on_release: transitioning from Recording -> Processing");
+                started_at.elapsed().as_millis() as i64
+            }
+            other => {
+                let state_name = match other {
+                    RecordingState::Idle => "Idle",
+                    RecordingState::Recording { .. } => "Recording",
+                    RecordingState::Processing => "Processing",
+                };
+                tracing::warn!(
+                    "Release received without matching press — state is {} (not Recording). Check for: 1) Key repeat events 2) Late release after pipeline completes 3) Multiple press events without release",
+                    state_name
+                );
                 return;
             }
         }
@@ -309,9 +324,12 @@ pub fn update_hotkey(app: &AppHandle, state: &AppState, hotkey_str: &str) -> boo
 
     if let Err(e) = app
         .global_shortcut()
-        .on_shortcut(shortcut, move |_app, _shortcut, event| match event.state {
-            ShortcutState::Pressed => on_press(&app_handle, &state_handle),
-            ShortcutState::Released => on_release(&app_handle, &state_handle),
+        .on_shortcut(shortcut, move |_app, _shortcut, event| {
+            tracing::debug!(state = ?event.state, "Global shortcut event received (update_hotkey)");
+            match event.state {
+                ShortcutState::Pressed => on_press(&app_handle, &state_handle),
+                ShortcutState::Released => on_release(&app_handle, &state_handle),
+            }
         })
     {
         tracing::error!(error = ?e, "Failed to register new hotkey");

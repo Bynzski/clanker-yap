@@ -17,10 +17,11 @@ pub fn inject(app: &AppHandle, text: &str, paste_mode: &str) -> Result<()> {
     let mut enigo = Enigo::new(&Settings::default())
         .map_err(|e| AppError::PasteFailed(format!("enigo init: {}", e)))?;
 
-    if cfg!(target_os = "linux") && paste_mode == "terminal" {
-        if send_terminal_paste(&mut enigo).is_ok() {
-            return Ok(());
-        }
+    if cfg!(target_os = "linux")
+        && paste_mode == "terminal"
+        && send_terminal_paste(&mut enigo).is_ok()
+    {
+        return Ok(());
     }
 
     send_standard_paste(&mut enigo)?;
