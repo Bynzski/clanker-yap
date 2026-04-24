@@ -51,9 +51,7 @@ pub fn recent(db: &Db, limit: u32) -> Result<Vec<Transcription>> {
 
     let mut transcriptions = Vec::new();
     for row in rows {
-        if let Some((Some(id), text, duration_ms, Some(created_at))) =
-            row.ok().map(|(a, b, c, d)| (a, b, c, d))
-        {
+        if let Ok((Some(id), text, duration_ms, Some(created_at))) = row {
             transcriptions.push(Transcription {
                 id,
                 text,

@@ -72,6 +72,7 @@ fn main() {
             let app_for_error = app.handle().clone();
 
             if let Err(e) = app.global_shortcut().on_shortcut(shortcut, move |_app, _shortcut, event| {
+                tracing::debug!(state = ?event.state, "Global shortcut event received");
                 match event.state {
                     ShortcutState::Pressed => orchestrator::on_press(&app_handle, &state_handle),
                     ShortcutState::Released => orchestrator::on_release(&app_handle, &state_handle),

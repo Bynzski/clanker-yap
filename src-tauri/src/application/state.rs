@@ -29,19 +29,15 @@ pub struct AppState {
 }
 
 /// Current state of the recording pipeline.
+#[derive(Default)]
 pub enum RecordingState {
     /// Idle, ready to start a new recording.
+    #[default]
     Idle,
     /// Actively recording audio.
     Recording { started_at: std::time::Instant },
     /// Transcribing and processing the last recording.
     Processing,
-}
-
-impl Default for RecordingState {
-    fn default() -> Self {
-        RecordingState::Idle
-    }
 }
 
 impl AppState {
