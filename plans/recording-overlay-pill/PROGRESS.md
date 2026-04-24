@@ -5,13 +5,13 @@ Updated after each phase commit. Read by agent prompts to determine current stat
 
 ## Current Phase
 
-**Phase 0** — Not started. Overlay window infrastructure + GTK Layer Shell + capabilities.
+**Phase 1** — Not started. FFT-based audio frequency band extraction.
 
 ## Phase Status
 
 | Phase | Description | Status | Commit |
 |-------|-------------|--------|--------|
-| 0 | Overlay window infra + GTK Layer Shell + capabilities | 🔲 | — |
+| 0 | Overlay window infra + GTK Layer Shell + capabilities | ✅ | — |
 | 1 | FFT-based audio frequency band extraction | 🔲 | — |
 | 2 | Overlay frontend (HTML/CSS/JS pill) | 🔲 | — |
 | 3 | Wire overlay + level emission to orchestrator | 🔲 | — |
@@ -37,6 +37,7 @@ Updated after each phase commit. Read by agent prompts to determine current stat
 - **Threading rule:** All overlay window ops go through `run_on_main_thread()` — pipeline() runs on spawn_blocking (GAP-2)
 - **Emission order:** Emit Tauri events before show/hide overlay calls (GAP-14)
 - **Crate structure:** All new modules go in `voice_transcribe_lib` (lib.rs), called from main.rs setup closure (GAP-16)
+- **wayland-overlay feature:** The `gtk-layer-shell` system library is not installed in this environment. Layer Shell code is feature-gated behind `wayland-overlay`. Users on Wayland compositors (Hyprland, Sway) must install `libgtk-layer-shell` (Arch) or `libgtk-layer-shell-dev` (Debian/Ubuntu) and build with `cargo tauri build --features wayland-overlay`.
 
 ## Blocking Issues
 
@@ -68,4 +69,4 @@ Updated after each phase commit. Read by agent prompts to determine current stat
 
 | Phase | Commit | Summary |
 |-------|--------|---------|
-| — | — | No phases completed yet |
+| 0 | — | Created `infrastructure/overlay.rs` with thread-safe `create_overlay/show_overlay/hide_overlay`. Added `overlay` module to `infrastructure/mod.rs`. Created `src/overlay.html` placeholder. Updated `capabilities/default.json` with `"overlay"` window + window permissions. Added `gtk-layer-shell` as feature-gated optional dep (`wayland-overlay`). Initialized Layer Shell in `create_overlay()` when feature enabled. Called `create_overlay()` from `main.rs` setup hook. Added single-instance comment in `main.rs`. All gates pass: `cargo fmt --check`, `cargo clippy -D warnings`, `cargo test` (5/5 ok). |

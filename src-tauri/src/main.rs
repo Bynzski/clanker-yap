@@ -7,13 +7,19 @@ use tauri_plugin_global_shortcut::{GlobalShortcutExt, Shortcut, ShortcutState};
 
 use voice_transcribe_lib::{
     application::{orchestrator, AppState},
-    infrastructure::persistence::{db::Db, settings_repo},
+    infrastructure::{
+        overlay,
+        persistence::{db::Db, settings_repo},
+    },
 };
 
 fn main() {
     voice_transcribe_lib::init_logging();
 
-    // Single instance enforcement — focus existing window if duplicate launch
+    // Single instance enforcement — focus existing window if duplicate launch.
+    // Note: We only focus the "main" window here. The "overlay" window should
+    // never be focused — it's a click-through pill that should not interfere
+    // with whatever application the user is typing in.
     let single_instance =
         tauri_plugin_single_instance::init(|app: &tauri::AppHandle<tauri::Wry>, _args, _cwd| {
             tracing::info!("Another instance attempted to start, focusing existing window");
@@ -93,6 +99,12 @@ fn main() {
                 tracing::warn!(model_path = %model_path_str,
                     "Model file not found — transcription will fail until user provides one"
                 );
+            }
+
+            // Create the overlay window, hidden by default.
+            // This is the recording pill that appears during dictation.
+            if let Err(e) = overlay::create_overlay(app.handle()) {
+                tracing::error!(error = %e, "Failed to create overlay window — continuing without it");
             }
 
             Ok(())
