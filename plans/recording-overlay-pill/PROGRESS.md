@@ -5,14 +5,14 @@ Updated after each phase commit. Read by agent prompts to determine current stat
 
 ## Current Phase
 
-**Phase 1** — Not started. FFT-based audio frequency band extraction.
+**Phase 1** — ✅ Complete
 
 ## Phase Status
 
 | Phase | Description | Status | Commit |
 |-------|-------------|--------|--------|
 | 0 | Overlay window infra + GTK Layer Shell + capabilities | ✅ | — |
-| 1 | FFT-based audio frequency band extraction | 🔲 | — |
+| 1 | FFT-based audio frequency band extraction | ✅ | — |
 | 2 | Overlay frontend (HTML/CSS/JS pill) | 🔲 | — |
 | 3 | Wire overlay + level emission to orchestrator | 🔲 | — |
 | 4 | Polish, animations, and edge cases | 🔲 | — |
@@ -70,3 +70,4 @@ Updated after each phase commit. Read by agent prompts to determine current stat
 | Phase | Commit | Summary |
 |-------|--------|---------|
 | 0 | — | Created `infrastructure/overlay.rs` with thread-safe `create_overlay/show_overlay/hide_overlay`. Added `overlay` module to `infrastructure/mod.rs`. Created `src/overlay.html` placeholder. Updated `capabilities/default.json` with `"overlay"` window + window permissions. Added `gtk-layer-shell` as feature-gated optional dep (`wayland-overlay`). Initialized Layer Shell in `create_overlay()` when feature enabled. Called `create_overlay()` from `main.rs` setup hook. Added single-instance comment in `main.rs`. All gates pass: `cargo fmt --check`, `cargo clippy -D warnings`, `cargo test` (5/5 ok). |
+| 1 | — | Created `infrastructure/audio/eq.rs` with `EqState` (realfft, Hann window, 1024pt FFT, 7 log-spaced bands, attack/decay smoothing). Added `eq_rx: Receiver<Vec<f32>>` field to `RecorderHandle`. Created `eq_tx`/`eq_rx` channel in `spawn_for_device()`. `EqState` created per-recording in `Start` arm of `recorder_thread`. EQ feeding added to all three cpal callback closures (F32, I16, fallback). Added `realfft = "3"` to `Cargo.toml`. Added `eq` module to `audio/mod.rs` with re-exports. All gates pass: `cargo test` (10/10 ok), `cargo clippy -D warnings`, `cargo fmt --check`. |
