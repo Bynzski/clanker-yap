@@ -5286,6 +5286,7 @@ dependencies = [
  "hound",
  "num_cpus",
  "parking_lot",
+ "realfft",
  "rubato",
  "rusqlite",
  "serde",

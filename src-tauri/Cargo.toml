@@ -41,6 +41,7 @@ whisper-rs = "0.16"
 enigo = "0.2"
 num_cpus = "1"
 crossbeam-channel = "0.5"
+realfft = "3"
 
 [target.'cfg(target_os = "linux")'.dependencies]
 # GTK Layer Shell for Wayland overlay positioning. Only used when the `wayland-overlay` feature is enabled.

@@ -3,11 +3,12 @@
 //! The cpal::Stream is !Send, so it lives on a dedicated worker thread.
 //! Communication with the recorder happens via crossbeam_channel.
 
-use crossbeam_channel::{self, Receiver, Sender};
+use crossbeam_channel::{Receiver, Sender};
 use parking_lot::Mutex;
 use std::sync::Arc;
 use std::thread::{self, JoinHandle};
 
+use super::eq::EqState;
 use crate::domain::constants::{MIN_RECORDING_DURATION_MS, WHISPER_SAMPLE_RATE};
 use crate::domain::error::{AppError, Result};
 
@@ -22,6 +23,8 @@ pub struct RecorderHandle {
     cmd_tx: Sender<RecorderCmd>,
     result_rx: Receiver<Result<Vec<f32>>>,
     _join: JoinHandle<()>,
+    /// Receives EQ band values (~30fps) while recording.
+    pub eq_rx: Receiver<Vec<f32>>,
     pub device_name: String,
 }
 
@@ -41,14 +44,16 @@ impl RecorderHandle {
     pub fn spawn_for_device(device: cpal::Device, device_name: String) -> Result<Self> {
         let (cmd_tx, cmd_rx) = crossbeam_channel::unbounded();
         let (result_tx, result_rx) = crossbeam_channel::bounded(1);
+        let (eq_tx, eq_rx) = crossbeam_channel::unbounded();
 
         let join = thread::Builder::new()
             .name("audio-recorder".into())
-            .spawn(move || recorder_thread(device, cmd_rx, result_tx))?;
+            .spawn(move || recorder_thread(device, cmd_rx, result_tx, eq_tx))?;
 
         Ok(Self {
             cmd_tx,
             result_rx,
+            eq_rx,
             _join: join,
             device_name,
         })
@@ -76,6 +81,7 @@ fn recorder_thread(
     device: cpal::Device,
     cmd_rx: Receiver<RecorderCmd>,
     result_tx: Sender<Result<Vec<f32>>>,
+    eq_tx: Sender<Vec<f32>>,
 ) {
     use cpal::traits::{DeviceTrait, StreamTrait};
 
@@ -107,6 +113,11 @@ fn recorder_thread(
 
                 let buffer_for_stream = Arc::clone(&buffer);
                 let channels_for_dw = channels;
+                let eq_tx_clone = eq_tx.clone();
+                let sample_rate_for_eq = sample_rate;
+
+                // Create EQ state for this recording session
+                let mut eq_state = EqState::new(sample_rate_for_eq);
 
                 let stream_result = match sample_format {
                     cpal::SampleFormat::F32 => {
@@ -117,13 +128,24 @@ fn recorder_thread(
                                 // Downmix to mono and append
                                 if channels_for_dw == 1 {
                                     buf.extend_from_slice(data);
+                                    // Feed mono samples to EQ
+                                    if let Some(bands) = eq_state.feed(data) {
+                                        let _ = eq_tx_clone.try_send(bands);
+                                    }
                                 } else {
+                                    let mut mono = Vec::with_capacity(data.len() / channels_for_dw);
                                     for frame in 0..data.len() / channels_for_dw {
                                         let mut sum = 0.0f32;
                                         for ch in 0..channels_for_dw {
                                             sum += data[frame * channels_for_dw + ch];
                                         }
-                                        buf.push(sum / channels_for_dw as f32);
+                                        let mono_sample = sum / channels_for_dw as f32;
+                                        buf.push(mono_sample);
+                                        mono.push(mono_sample);
+                                    }
+                                    // Feed mono samples to EQ
+                                    if let Some(bands) = eq_state.feed(&mono) {
+                                        let _ = eq_tx_clone.try_send(bands);
                                     }
                                 }
                             },
@@ -137,14 +159,27 @@ fn recorder_thread(
                             let mut buf = buffer_for_stream.lock();
                             if channels_for_dw == 1 {
                                 buf.extend(data.iter().map(|&s| s as f32 / i16::MAX as f32));
+                                // Convert to mono f32 for EQ
+                                let mono: Vec<f32> =
+                                    data.iter().map(|&s| s as f32 / i16::MAX as f32).collect();
+                                if let Some(bands) = eq_state.feed(&mono) {
+                                    let _ = eq_tx_clone.try_send(bands);
+                                }
                             } else {
+                                let mut mono = Vec::with_capacity(data.len() / channels_for_dw);
                                 for frame in 0..data.len() / channels_for_dw {
                                     let mut sum = 0.0f32;
                                     for ch in 0..channels_for_dw {
                                         sum += data[frame * channels_for_dw + ch] as f32
                                             / i16::MAX as f32;
                                     }
-                                    buf.push(sum / channels_for_dw as f32);
+                                    let mono_sample = sum / channels_for_dw as f32;
+                                    buf.push(mono_sample);
+                                    mono.push(mono_sample);
+                                }
+                                // Feed mono samples to EQ
+                                if let Some(bands) = eq_state.feed(&mono) {
+                                    let _ = eq_tx_clone.try_send(bands);
                                 }
                             }
                         },
@@ -159,14 +194,25 @@ fn recorder_thread(
                                 let mut buf = buffer_for_stream.lock();
                                 if channels_for_dw == 1 {
                                     buf.extend(data.iter().map(|&s| s as f32 / i16::MAX as f32));
+                                    let mono: Vec<f32> =
+                                        data.iter().map(|&s| s as f32 / i16::MAX as f32).collect();
+                                    if let Some(bands) = eq_state.feed(&mono) {
+                                        let _ = eq_tx_clone.try_send(bands);
+                                    }
                                 } else {
+                                    let mut mono = Vec::with_capacity(data.len() / channels_for_dw);
                                     for frame in 0..data.len() / channels_for_dw {
                                         let mut sum = 0.0f32;
                                         for ch in 0..channels_for_dw {
                                             sum += data[frame * channels_for_dw + ch] as f32
                                                 / i16::MAX as f32;
                                         }
-                                        buf.push(sum / channels_for_dw as f32);
+                                        let mono_sample = sum / channels_for_dw as f32;
+                                        buf.push(mono_sample);
+                                        mono.push(mono_sample);
+                                    }
+                                    if let Some(bands) = eq_state.feed(&mono) {
+                                        let _ = eq_tx_clone.try_send(bands);
                                     }
                                 }
                             },
