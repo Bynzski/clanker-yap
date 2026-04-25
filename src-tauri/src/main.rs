@@ -111,10 +111,11 @@ fn main() {
         })
         .build(tauri::generate_context!())
         .expect("error while building tauri application")
-        .run(move |_app, event| {
+        .run(move |app, event| {
             if let tauri::RunEvent::ExitRequested { .. } = event {
                 tracing::info!("Exit requested — cleaning up");
-                orchestrator::shutdown(&app_state_for_run);
+                // Pass AppHandle so shutdown can hide the overlay window
+                orchestrator::shutdown(app, &app_state_for_run);
             }
         });
 }

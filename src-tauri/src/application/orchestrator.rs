@@ -303,8 +303,14 @@ fn pipeline(app: &AppHandle, state: &AppState, duration_ms: i64) {
     };
 
     if samples.is_empty() {
-        tracing::info!("No audio samples collected");
+        tracing::info!("No audio samples collected — not enough for transcription");
         transition_to_idle(state);
+        // Emit so overlay hides (user released PTT, pipeline can't continue without audio)
+        let _ = app.emit(
+            "transcription-complete",
+            serde_json::json!({ "text": "", "duration_ms": duration_ms }),
+        );
+        hide_overlay(app);
         return;
     }
 
@@ -331,6 +337,12 @@ fn pipeline(app: &AppHandle, state: &AppState, duration_ms: i64) {
     if text.is_empty() {
         tracing::info!("Transcription produced empty text — skipping paste and save");
         transition_to_idle(state);
+        // Emit so overlay hides (nothing to paste or save, but pill should disappear)
+        let _ = app.emit(
+            "transcription-complete",
+            serde_json::json!({ "text": "", "duration_ms": duration_ms }),
+        );
+        hide_overlay(app);
         return;
     }
 
@@ -426,8 +438,14 @@ pub fn update_hotkey(app: &AppHandle, state: &AppState, hotkey_str: &str) -> boo
 // ── Shutdown ───────────────────────────────────────────────────────────────
 
 /// Cleans up resources on application exit.
-pub fn shutdown(state: &AppState) {
+///
+/// Hides the overlay window first (if visible) so it doesn't linger during shutdown,
+/// then releases the recorder and whisper engine.
+pub fn shutdown(app: &AppHandle, state: &AppState) {
     tracing::info!("Orchestrator shutdown");
+
+    // Hide overlay first so it doesn't linger during exit
+    hide_overlay(app);
 
     // Stop active recording if any
     let is_recording = matches!(&*state.recording.lock(), RecordingState::Recording { .. });
