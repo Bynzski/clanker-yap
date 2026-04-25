@@ -36,6 +36,10 @@ pub struct Settings {
     #[serde(default)]
     pub audio_input: Option<AudioInputSelection>,
 
+    /// Total words transcribed across all sessions.
+    #[serde(default)]
+    pub total_words: u64,
+
     /// Schema version for future migrations.
     #[serde(default = "current_schema")]
     pub schema_version: u32,
@@ -67,6 +71,7 @@ impl Default for Settings {
             model_name: crate::domain::DEFAULT_MODEL_FILE.to_string(),
             paste_mode: default_paste_mode(),
             audio_input: None,
+            total_words: 0,
             schema_version: current_schema(),
         }
     }
