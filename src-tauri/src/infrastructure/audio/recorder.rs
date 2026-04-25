@@ -108,6 +108,7 @@ fn recorder_thread(
     loop {
         match cmd_rx.recv() {
             Ok(RecorderCmd::Start) => {
+                tracing::debug!("recorder_thread: received Start command");
                 // Clear and restart the buffer
                 buffer_clone.lock().clear();
 
@@ -225,23 +226,36 @@ fn recorder_thread(
                 if let Ok(s) = stream_result {
                     stream = Some(s);
                     if let Err(e) = stream.as_ref().unwrap().play() {
-                        tracing::warn!(error = ?e, "Failed to start audio stream");
+                        tracing::warn!(error = ?e, "recorder_thread: Failed to start audio stream");
+                    } else {
+                        tracing::debug!("recorder_thread: audio stream playing");
                     }
                 }
             }
             Ok(RecorderCmd::Stop) => {
+                tracing::debug!("recorder_thread: received Stop command");
                 // Drop stream, collect buffer, resample
                 if let Some(s) = stream.take() {
                     drop(s);
                 }
                 let samples = buffer_clone.lock().split_off(0);
+                tracing::debug!("recorder_thread: collected {} raw samples", samples.len());
 
-                // Resample to 16 kHz
                 let resampled =
                     super::resample::resample(&samples, sample_rate, WHISPER_SAMPLE_RATE);
+                tracing::debug!(
+                    "recorder_thread: resampled to {} samples ({} Hz)",
+                    resampled.len(),
+                    WHISPER_SAMPLE_RATE
+                );
 
                 let duration_ms = resampled.len() as i64 * 1000 / WHISPER_SAMPLE_RATE as i64;
                 if duration_ms < MIN_RECORDING_DURATION_MS {
+                    tracing::warn!(
+                        duration_ms,
+                        "recorder_thread: audio too short (< {}ms minimum)",
+                        MIN_RECORDING_DURATION_MS
+                    );
                     let _ = result_tx.send(Err(AppError::Audio("Recording too short".into())));
                 } else {
                     let _ = result_tx.send(Ok(resampled));

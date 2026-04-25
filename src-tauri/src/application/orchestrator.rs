@@ -15,7 +15,7 @@ use crate::application::use_cases::paste;
 use crate::application::use_cases::transcribe as transcribe_usecase;
 use crate::application::use_cases::transcription as transcription_usecase;
 use crate::domain::transcription::Transcription;
-use crate::infrastructure::overlay::{hide_overlay, show_overlay};
+use crate::infrastructure::overlay::{hide_overlay, hide_overlay_before_paste, show_overlay};
 
 // ── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -197,18 +197,23 @@ pub fn on_press(app: &AppHandle, state: &AppState) {
 
     // ── Phase 3 wiring: emit first, then show overlay ─────────────────────
     // Emit event BEFORE show so overlay JS renders the correct state while still hidden
+    tracing::debug!("on_press: emitting recording-started and showing overlay");
     let _ = app.emit("recording-started", ());
     show_overlay(app);
 
     // Reset cancel flag and spawn level emission task
+    tracing::debug!("on_press: spawning level emission task");
     state
         .level_cancel
         .store(false, std::sync::atomic::Ordering::Relaxed);
     if let Some(rec) = state.recorder.lock().as_ref() {
+        tracing::debug!("on_press: recorder found, spawning level task");
         let eq_rx = rec.eq_rx.clone();
         let cancel = state.level_cancel.clone();
         let app_clone = app.clone();
         spawn_level_emission_task(app_clone, eq_rx, cancel);
+    } else {
+        tracing::warn!("on_press: no recorder available for level emission");
     }
 }
 
@@ -268,9 +273,12 @@ pub fn on_release(app: &AppHandle, state: &AppState) {
 
 /// Record → transcribe → paste → save.
 fn pipeline(app: &AppHandle, state: &AppState, duration_ms: i64) {
+    tracing::debug!("pipeline started, duration_ms={}", duration_ms);
     // 1. Stop recorder and collect samples
     let samples = {
+        tracing::debug!("pipeline: acquiring recorder lock to stop_and_collect");
         let guard = state.recorder.lock();
+        tracing::debug!("pipeline: recorder lock acquired, calling stop_and_collect");
         match guard.as_ref().map(|r| r.stop_and_collect()) {
             Some(Ok(s)) => s,
             Some(Err(e)) => {
@@ -346,11 +354,15 @@ fn pipeline(app: &AppHandle, state: &AppState, duration_ms: i64) {
         return;
     }
 
-    tracing::info!(text_len = text.len(), "Transcribed");
+    tracing::info!(text_len = text.len(), text_preview = %&text[..text.len().min(50)], "Transcribed");
 
     // 3. Paste (log error but continue — text stays in clipboard for manual paste)
+    hide_overlay_before_paste(app);
+    tracing::info!(text_len = text.len(), "Attempting clipboard paste");
     if let Err(e) = paste::execute(app, &text, state) {
         tracing::warn!(error = ?e, "Paste injection failed — text available in clipboard");
+    } else {
+        tracing::info!("Paste injection succeeded");
     }
 
     // 4. Save transcription
