@@ -26,7 +26,7 @@
   },
   "bundle": {
     "active": true,
-    "targets": "deb",
+    "targets": "appimage",
     "macOS": {
       "entitlements": "./entitlements.plist"
     },

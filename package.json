@@ -4,7 +4,9 @@
   "version": "0.1.0",
   "type": "module",
   "scripts": {
-    "tauri": "tauri"
+    "tauri": "tauri",
+    "tauri:build": "NO_STRIP=1 npx tauri build",
+    "tauri:dev": "npx tauri dev"
   },
   "devDependencies": {
     "@tauri-apps/api": "^2.10.1",
