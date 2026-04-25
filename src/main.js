@@ -704,6 +704,28 @@ function formatWordCount(count) {
 }
 
 function formatHotkeyForDisplay(value) {
+    if (!value) {
+        return "";
+    }
+
+    return value
+        .split("+")
+        .map((part) => {
+            if (part === "CmdOrCtrl") return getCommandLabel();
+            if (part === "Alt") return "Alt";
+            if (part === "Shift") return "Shift";
+            if (part === "PageUp") return "Page Up";
+            if (part === "PageDown") return "Page Down";
+            if (part === "Left") return "Left Arrow";
+            if (part === "Right") return "Right Arrow";
+            if (part === "Up") return "Up Arrow";
+            if (part === "Down") return "Down Arrow";
+            return part;
+        })
+        .join(" + ");
+}
+
+function formatPasteMode(value) {
     switch (value) {
         case "terminal":
             return "Terminal";
@@ -1067,6 +1089,7 @@ function updateToolbarHints(nextSettings) {
     const hintModel = document.getElementById("hint-model");
     const hintMic = document.getElementById("hint-mic");
     const hintPaste = document.getElementById("hint-paste");
+    const hintHistory = document.getElementById("hint-history");
 
     if (hintHotkey) hintHotkey.textContent = nextSettings.hotkey || "--";
     if (hintModel) hintModel.textContent = nextSettings.model_name || "--";
@@ -1081,6 +1104,7 @@ function updateToolbarHints(nextSettings) {
     }
 
     if (hintPaste) hintPaste.textContent = formatPasteMode(nextSettings.paste_mode);
+    if (hintHistory) hintHistory.textContent = String(transcriptions.length);
 }
 
 async function submitMicrophone() {

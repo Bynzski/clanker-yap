@@ -50,7 +50,13 @@
                 <span class="status-dot" aria-hidden="true"></span>
                 <span id="status-text">Loading</span>
               </div>
-              <div class="status-chip" id="status-chip">Initializing</div>
+              <div class="status-meta">
+                <div class="status-chip" id="status-chip">Initializing</div>
+                <div class="word-count-display" id="word-count-display">
+                  <span id="word-count-value">0</span>
+                  <span class="word-count-label">words</span>
+                </div>
+              </div>
             </div>
             <div class="waveform" aria-hidden="true">
               <span class="wave-bar"></span>
@@ -100,11 +106,6 @@
             <span class="toolbar-hint" id="hint-history">0</span>
           </button>
         </nav>
-
-        <div class="word-count-display" id="word-count-display">
-          <span id="word-count-value">0</span>
-          <span class="word-count-label">words transcribed</span>
-        </div>
 
         <section class="settings-drawer" id="settings-drawer">
           <article class="setting-card" id="hotkey-card">

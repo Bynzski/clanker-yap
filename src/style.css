@@ -156,30 +156,26 @@ select {
     padding: 8px 10px 10px;
 }
 
-.word-count-display {
+.status-meta {
     display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 4px;
+}
+
+.word-count-display {
+    display: inline-flex;
     align-items: baseline;
-    gap: 6px;
-    padding: 8px 12px;
-    border-radius: var(--radius-card);
-    background: var(--bg-secondary);
-    border: 1px solid var(--border-color);
-    color: var(--text-secondary);
-    font-size: 12px;
-}
-
-.word-count-display #word-count-value {
-    font-size: 18px;
-    font-weight: 700;
-    color: var(--text-primary);
-    letter-spacing: -0.02em;
-}
-
-.word-count-display .word-count-label {
+    gap: 4px;
     color: var(--text-tertiary);
     font-size: 10px;
     text-transform: uppercase;
     letter-spacing: 0.05em;
+}
+
+.word-count-display #word-count-value {
+    color: var(--text-secondary);
+    font-weight: 600;
 }
 
 .hero,
