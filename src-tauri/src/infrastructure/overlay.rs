@@ -20,8 +20,34 @@
 //! positioning on Wayland compositors (Hyprland, Sway, etc.). On X11 or Wayland
 //! without Layer Shell support, it falls back to `set_always_on_top(true)` via
 //! Tauri's window API.
+//!
+//! ## Thread-safety
+//!
+//! All `WebviewWindow` method calls must be wrapped in `app.run_on_main_thread()`.
+//! `AppHandle` is `Clone + Send + Sync` and crosses thread boundaries safely.
+//! The level-emission task and pipeline both call overlay functions from non-main
+//! threads — the `run_on_main_thread()` bridge handles this.
+//!
+//! ## Rapid toggle handling
+//!
+//! When PTT is pressed while the overlay is mid-hide-animation, the pending
+//! hide thread is cancelled so the window doesn't disappear unexpectedly.
+//! The `hiding_in_progress` flag prevents concurrent hide operations.
+//!
+//! ## Shutdown cleanup
+//!
+//! `hide_overlay()` is safe to call during app exit. It will gracefully skip
+//! if the window has already been dropped.
 
+use std::sync::atomic::{AtomicBool, Ordering};
 use tauri::{AppHandle, Manager, WebviewUrl, WebviewWindowBuilder};
+
+/// Tracks whether a hide operation is in progress, preventing concurrent hides.
+static HIDING_IN_PROGRESS: AtomicBool = AtomicBool::new(false);
+
+/// Tracks the handle of the pending hide thread so it can be cancelled on rapid toggle.
+static PENDING_HIDE_HANDLE: std::sync::Mutex<Option<std::thread::ThreadId>> =
+    std::sync::Mutex::new(None);
 
 /// Overlay window label — used as the unique identifier for this window.
 pub const OVERLAY_LABEL: &str = "overlay";
@@ -89,14 +115,11 @@ pub fn create_overlay(app: &AppHandle) -> Result<(), String> {
         }
     }
 
-    // Configure click-through: cursor events pass through to windows beneath.
-    let app_clone = app.clone();
-    let _ = app.run_on_main_thread(move || {
-        if let Some(w) = app_clone.get_webview_window(OVERLAY_LABEL) {
-            let _ = w.set_ignore_cursor_events(true);
-            tracing::info!("Overlay window created, hidden by default");
-        }
-    });
+    // Click-through: We skip set_ignore_cursor_events here because tao-0.34.8's
+    // event loop panics when calling it on a hidden GTK window (unwrap on
+    // window.gdk_window()). Instead, we set it in show_overlay() where the
+    // window is guaranteed to be visible. See GAP-4.
+    tracing::info!("Overlay window created, hidden by default");
 
     Ok(())
 }
@@ -106,14 +129,29 @@ pub fn create_overlay(app: &AppHandle) -> Result<(), String> {
 /// The overlay window is positioned at bottom-center of the primary monitor.
 /// On X11 (or Wayland without Layer Shell), the window uses `set_always_on_top(true)`.
 /// On Wayland with Layer Shell, GTK Layer Shell handles positioning.
+///
+/// ### Rapid toggle handling
+///
+/// If a hide animation is in progress (via `hide_overlay`), this function
+/// cancels the pending hide thread so the window stays visible when PTT is
+/// pressed again mid-animation.
 pub fn show_overlay(app: &AppHandle) {
+    // Cancel any pending hide operation — user pressed PTT again
+    cancel_pending_hide();
+
     let handle = app.clone();
     let _ = app.run_on_main_thread(move || {
         if let Some(window) = handle.get_webview_window(OVERLAY_LABEL) {
             // Re-apply always-on-top as some compositors drop it (X11 fallback path)
             let _ = window.set_always_on_top(true);
             let _ = window.show();
-            tracing::debug!("Overlay shown");
+
+            // Set click-through now that the window is visible.
+            // This is safe to call here (vs. during create_overlay) because the
+            // window is shown, so gdk_window() is available. (tao panics on hidden windows)
+            let _ = window.set_ignore_cursor_events(true);
+
+            tracing::debug!("Overlay shown, click-through enabled");
         } else {
             tracing::warn!("Overlay window not found — cannot show");
         }
@@ -125,19 +163,73 @@ pub fn show_overlay(app: &AppHandle) {
 /// This function first waits 150ms to allow the frontend's scale-out animation
 /// to play, then hides the window. This is important for the user experience:
 /// the pill should animate out smoothly rather than disappearing instantly.
+///
+/// ### Rapid toggle handling
+///
+/// If `show_overlay` is called while a hide is in progress, the pending hide
+/// is cancelled (tracked via `PENDING_HIDE_HANDLE`) so the overlay doesn't
+/// disappear unexpectedly when PTT is pressed again.
+///
+/// ### Shutdown safety
+///
+/// Safe to call during app exit. If the window has already been dropped,
+/// the `get_webview_window` call returns `None` and the function is a no-op.
 pub fn hide_overlay(app: &AppHandle) {
-    // Spawn a short-lived thread to handle the delay and main-thread callback.
-    // `app` is Clone + Send + Sync, so it crosses the thread boundary safely.
-    let handle_for_delay = app.clone();
+    // Mark hide as in progress so rapid toggle can detect it
+    if HIDING_IN_PROGRESS
+        .compare_exchange(false, true, Ordering::SeqCst, Ordering::SeqCst)
+        .is_err()
+    {
+        // A hide is already in progress — skip to avoid double-spawning
+        tracing::debug!("hide_overlay called while already hiding — skipping");
+        return;
+    }
+
+    let handle = app.clone();
+    let hide_thread = std::thread::current().id();
+
+    // Store the pending hide thread ID so show_overlay can cancel it
+    {
+        let mut pending = PENDING_HIDE_HANDLE.lock().unwrap();
+        *pending = Some(hide_thread);
+    }
+
     std::thread::spawn(move || {
         std::thread::sleep(std::time::Duration::from_millis(150));
-        let h = handle_for_delay.clone();
-        let h2 = h.clone();
-        let _ = h.run_on_main_thread(move || {
-            if let Some(window) = h2.get_webview_window(OVERLAY_LABEL) {
-                let _ = window.hide();
-                tracing::debug!("Overlay hidden after animation delay");
+
+        let h = handle.clone();
+        let _ = handle.run_on_main_thread(move || {
+            // Check if this hide was cancelled (by a rapid toggle)
+            let should_hide = {
+                let mut pending = PENDING_HIDE_HANDLE.lock().unwrap();
+                if pending.is_some_and(|id| id != hide_thread) {
+                    // Cancelled by a newer show_overlay call
+                    tracing::debug!("Pending hide cancelled by rapid toggle");
+                    false
+                } else {
+                    *pending = None;
+                    true
+                }
+            };
+
+            if should_hide {
+                if let Some(window) = h.get_webview_window(OVERLAY_LABEL) {
+                    let _ = window.hide();
+                    tracing::debug!("Overlay hidden after animation delay");
+                }
             }
+
+            HIDING_IN_PROGRESS.store(false, Ordering::SeqCst);
         });
     });
+}
+
+/// Cancels any pending hide operation so the overlay stays visible.
+/// Called by `show_overlay` when the user presses PTT again mid-animation.
+fn cancel_pending_hide() {
+    let mut pending = PENDING_HIDE_HANDLE.lock().unwrap();
+    if pending.is_some() {
+        *pending = None;
+        tracing::debug!("Pending overlay hide cancelled");
+    }
 }
