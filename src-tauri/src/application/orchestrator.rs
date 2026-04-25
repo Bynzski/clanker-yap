@@ -7,6 +7,7 @@
 //! Events are emitted to the frontend via `app.emit(...)`.
 
 use cpal::traits::{DeviceTrait, HostTrait};
+use std::time::{Duration, Instant};
 use tauri::{AppHandle, Emitter};
 
 use crate::application::state::{AppState, RecordingState};
@@ -14,6 +15,7 @@ use crate::application::use_cases::paste;
 use crate::application::use_cases::transcribe as transcribe_usecase;
 use crate::application::use_cases::transcription as transcription_usecase;
 use crate::domain::transcription::Transcription;
+use crate::infrastructure::overlay::{hide_overlay, show_overlay};
 
 // ── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -28,6 +30,55 @@ fn set_last_error(state: &AppState, message: impl Into<String>) {
 
 fn clear_last_error(state: &AppState) {
     *state.last_error.lock() = None;
+}
+
+// ── Level Emission Task ─────────────────────────────────────────────────────
+
+/// Spawns a background thread that reads EQ band values from the recorder's
+/// `eq_rx` channel and emits `mic-level` events to the frontend at ~30fps.
+/// Runs until `level_cancel` is set to `true` (by `on_release`).
+fn spawn_level_emission_task(
+    app: AppHandle,
+    eq_rx: crossbeam_channel::Receiver<Vec<f32>>,
+    level_cancel: std::sync::Arc<std::sync::atomic::AtomicBool>,
+) {
+    std::thread::spawn(move || {
+        let target_interval = Duration::from_millis(33); // ~30fps
+
+        loop {
+            // Check cancellation flag first — exit promptly without blocking
+            if level_cancel.load(std::sync::atomic::Ordering::Relaxed) {
+                tracing::debug!("Level emission task: cancelled");
+                break;
+            }
+
+            // Try to receive with a short timeout so we can re-check the cancel flag
+            match eq_rx.recv_timeout(target_interval) {
+                Ok(bands) => {
+                    let now = Instant::now();
+                    let _ = app.emit("mic-level", &bands);
+                    let elapsed = now.elapsed();
+
+                    // Throttle to ~30fps: sleep for remaining interval
+                    if elapsed < target_interval {
+                        let remaining = target_interval - elapsed;
+                        std::thread::sleep(remaining);
+                    }
+                }
+                Err(crossbeam_channel::RecvTimeoutError::Timeout) => {
+                    // No data yet — loop back and check cancel flag
+                    continue;
+                }
+                Err(crossbeam_channel::RecvTimeoutError::Disconnected) => {
+                    // Channel closed (recorder stopped) — exit
+                    tracing::debug!("Level emission task: channel disconnected");
+                    break;
+                }
+            }
+        }
+
+        tracing::info!("Level emission task: stopped");
+    });
 }
 
 // ── Hotkey Press ────────────────────────────────────────────────────────────
@@ -143,7 +194,22 @@ pub fn on_press(app: &AppHandle, state: &AppState) {
     };
 
     tracing::info!("Recording started");
+
+    // ── Phase 3 wiring: emit first, then show overlay ─────────────────────
+    // Emit event BEFORE show so overlay JS renders the correct state while still hidden
     let _ = app.emit("recording-started", ());
+    show_overlay(app);
+
+    // Reset cancel flag and spawn level emission task
+    state
+        .level_cancel
+        .store(false, std::sync::atomic::Ordering::Relaxed);
+    if let Some(rec) = state.recorder.lock().as_ref() {
+        let eq_rx = rec.eq_rx.clone();
+        let cancel = state.level_cancel.clone();
+        let app_clone = app.clone();
+        spawn_level_emission_task(app_clone, eq_rx, cancel);
+    }
 }
 
 // ── Hotkey Release ──────────────────────────────────────────────────────────
@@ -173,10 +239,17 @@ pub fn on_release(app: &AppHandle, state: &AppState) {
         }
     };
 
+    // ── Phase 3 wiring: emit event BEFORE overlay transition ────────────────
     let _ = app.emit(
         "recording-stopped",
         serde_json::json!({ "duration_ms": duration_ms }),
     );
+
+    // Signal level emission task to stop
+    state
+        .level_cancel
+        .store(true, std::sync::atomic::Ordering::Relaxed);
+
     tracing::info!(
         duration_ms,
         "Recording stopped, running transcription pipeline"
@@ -210,6 +283,7 @@ fn pipeline(app: &AppHandle, state: &AppState, duration_ms: i64) {
                         "error": error_message
                     }),
                 );
+                hide_overlay(app);
                 return;
             }
             None => {
@@ -222,6 +296,7 @@ fn pipeline(app: &AppHandle, state: &AppState, duration_ms: i64) {
                         "error": error_message
                     }),
                 );
+                hide_overlay(app);
                 return;
             }
         }
@@ -248,6 +323,7 @@ fn pipeline(app: &AppHandle, state: &AppState, duration_ms: i64) {
                     "error": error_message
                 }),
             );
+            hide_overlay(app);
             return;
         }
     };
@@ -272,6 +348,7 @@ fn pipeline(app: &AppHandle, state: &AppState, duration_ms: i64) {
             tracing::warn!(error = ?e, "Transcription entity invalid — not saving");
             transition_to_idle(state);
             clear_last_error(state);
+            // Emit BEFORE hiding so overlay can play exit animation
             let _ = app.emit(
                 "transcription-complete",
                 serde_json::json!({
@@ -279,6 +356,7 @@ fn pipeline(app: &AppHandle, state: &AppState, duration_ms: i64) {
                     "duration_ms": duration_ms
                 }),
             );
+            hide_overlay(app);
             return;
         }
     };
@@ -289,6 +367,10 @@ fn pipeline(app: &AppHandle, state: &AppState, duration_ms: i64) {
 
     transition_to_idle(state);
     clear_last_error(state);
+
+    // ── Phase 3 wiring: emit event BEFORE hide overlay ─────────────────────
+    // hide_overlay() uses run_on_main_thread() so it's safe to call from this
+    // blocking thread (GAP-2)
     let _ = app.emit(
         "transcription-complete",
         serde_json::json!({
@@ -296,6 +378,7 @@ fn pipeline(app: &AppHandle, state: &AppState, duration_ms: i64) {
             "duration_ms": duration_ms
         }),
     );
+    hide_overlay(app);
 }
 
 // ── Hotkey Re-registration ─────────────────────────────────────────────────

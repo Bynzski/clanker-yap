@@ -1,6 +1,7 @@
 //! Shared application state shared across all Tauri commands and handlers.
 
 use parking_lot::Mutex;
+use std::sync::atomic::AtomicBool;
 use std::sync::Arc;
 
 use crate::domain::settings::Settings;
@@ -26,6 +27,10 @@ pub struct AppState {
 
     /// Last pipeline error surfaced to the UI.
     pub last_error: Arc<Mutex<Option<String>>>,
+
+    /// Flag to cancel the level-emission background task.
+    /// Set to `true` in `on_release()`; checked by the level task before each channel read.
+    pub level_cancel: Arc<AtomicBool>,
 }
 
 /// Current state of the recording pipeline.
@@ -50,6 +55,7 @@ impl AppState {
             recorder: Arc::new(Mutex::new(None)),
             recording: Arc::new(Mutex::new(RecordingState::Idle)),
             last_error: Arc::new(Mutex::new(None)),
+            level_cancel: Arc::new(AtomicBool::new(false)),
         }
     }
 }
