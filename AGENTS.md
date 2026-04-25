@@ -14,13 +14,14 @@ The user holds a global push-to-talk hotkey (default `CmdOrCtrl+Shift+V`), speak
 clanker-yap/
 ├── src/                          # Frontend (vanilla JS, no framework, no bundler)
 │   ├── index.html                # Single-page UI shell
+│   ├── overlay.html              # Floating always-on-top recording overlay pill
 │   ├── main.js                   # All frontend logic (invokes, event listeners, DOM)
 │   ├── style.css                 # Full CSS (dark theme, monospace)
 │   └── vendor/tauri.js           # Tauri v2 API shim (no npm required)
 │
 ├── src-tauri/                    # Rust backend (Tauri v2)
 │   ├── Cargo.toml                # Rust dependencies
-│   ├── tauri.conf.json           # Tauri window/bundle config
+│   ├── tauri.conf.json           # Tauri window/bundle config (main + overlay windows)
 │   └── src/
 │       ├── lib.rs                # Crate root — logging init, module declarations
 │       ├── main.rs               # Tauri app bootstrap, shortcut registration, plugins
@@ -33,7 +34,7 @@ clanker-yap/
 │       │
 │       ├── application/          # Use cases and shared state
 │       │   ├── state.rs          # AppState (DB, settings, whisper, recorder, recording state)
-│       │   ├── orchestrator.rs   # Hotkey press/release → full pipeline coordination
+│       │   ├── orchestrator.rs   # Hotkey press/release → full pipeline + overlay coordination
 │       │   └── use_cases/
 │       │       ├── transcribe.rs     # Load-or-get whisper engine, run transcription
 │       │       ├── transcription.rs  # Save + prune transcription history
@@ -45,7 +46,8 @@ clanker-yap/
 │       │   ├── audio/
 │       │   │   ├── device.rs     # Audio device enumeration (cpal)
 │       │   │   ├── recorder.rs   # Dedicated thread recorder with crossbeam channels
-│       │   │   └── resample.rs   # Linear interpolation resampling to 16 kHz
+│       │   │   ├── resample.rs   # Linear interpolation resampling to 16 kHz
+│       │   │   └── eq.rs         # FFT-based frequency band extraction (EqState)
 │       │   ├── whisper/
 │       │   │   ├── engine.rs     # WhisperContext wrapper, lazy-load + cache
 │       │   │   └── downloader.rs # curl/wget model download
@@ -54,8 +56,9 @@ clanker-yap/
 │       │   │   ├── db.rs         # SQLite connection wrapper (rusqlite, bundled)
 │       │   │   ├── settings_repo.rs    # Single-row JSON settings persistence
 │       │   │   └── transcription_repo.rs # Transcription CRUD + prune
-│       │   └── paste/
-│       │       └── service.rs    # Enigo keystroke injection (standard + terminal modes)
+│       │   ├── paste/
+│       │   │   └── service.rs    # Enigo keystroke injection (standard + terminal modes)
+│       │   └── overlay.rs        # Floating always-on-top overlay window (thread-safe)
 │       │
 │       └── presentation/         # Tauri command handlers + DTOs
 │           ├── dto.rs            # Request/response types for the frontend API
@@ -206,6 +209,7 @@ Tests live alongside the code they test in `#[cfg(test)] mod tests` blocks:
 | `whisper-rs` 0.16 | Rust bindings for whisper.cpp |
 | `cpal` 0.15 | Cross-platform audio capture |
 | `rubato` 0.15 | Sample rate conversion (resampling) |
+| `realfft` 3 | Pure-Rust FFT for frequency band extraction (EQ visualization) |
 | `rusqlite` 0.32 (bundled) | SQLite persistence |
 | `enigo` 0.2 | Cross-platform keystroke injection |
 | `parking_lot` 0.12 | Efficient mutex for shared state |
@@ -215,6 +219,7 @@ Tests live alongside the code they test in `#[cfg(test)] mod tests` blocks:
 | `chrono` 0.4 | Timestamps |
 | `thiserror` 1 | Error derives |
 | `tracing` / `tracing-subscriber` | Structured logging |
+| `gtk-layer-shell` 0.8 | GTK Layer Shell for Wayland overlay positioning (Linux only) |
 
 ---
 

@@ -114,8 +114,8 @@ On first launch, the app will:
 | Status | Meaning |
 |--------|---------|
 | Ready | App is idle, ready to record |
-| Recording | Hotkey held, actively recording |
-| Processing | Transcribing audio |
+| Recording | Hotkey held, actively recording — overlay pill visible |
+| Processing | Transcribing audio — overlay pill shows processing state |
 | Done | Text copied and pasted |
 
 ### Settings Access
@@ -126,6 +126,19 @@ Click the toolbar icons to configure:
 - **Mic** - Choose audio input device
 - **Paste** - Configure paste behavior (Auto/Standard/Terminal)
 - **History** - View recent transcriptions
+
+### Recording Overlay
+
+When you hold the hotkey, a floating recording indicator pill appears at the bottom of your screen:
+
+- **Recording state:** Shows 7 real-time FFT frequency bars that react to your voice
+- **Processing state:** Shows an amber pulsing indicator while transcribing
+
+The overlay is:
+- Always on top of other windows
+- Click-through (doesn't block mouse events)
+- Transparent (doesn't obscure your work)
+- Hidden automatically after transcription completes
 
 ## Next Steps
 
