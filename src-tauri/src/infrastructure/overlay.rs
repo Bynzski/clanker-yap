@@ -40,6 +40,7 @@
 //! if the window has already been dropped.
 
 use std::sync::atomic::{AtomicBool, Ordering};
+use std::time::Duration;
 use tauri::{AppHandle, Manager, WebviewUrl, WebviewWindowBuilder};
 
 /// Tracks whether a hide operation is in progress, preventing concurrent hides.
@@ -78,6 +79,7 @@ pub fn create_overlay(app: &AppHandle) -> Result<(), String> {
         .shadow(false)
         .always_on_top(true)
         .skip_taskbar(true)
+        .focusable(false)
         .focused(false)
         .visible(false)
         .resizable(false);
@@ -144,6 +146,7 @@ pub fn show_overlay(app: &AppHandle) {
         if let Some(window) = handle.get_webview_window(OVERLAY_LABEL) {
             // Re-apply always-on-top as some compositors drop it (X11 fallback path)
             let _ = window.set_always_on_top(true);
+            let _ = window.set_focusable(false);
             let _ = window.show();
 
             // Set click-through now that the window is visible.
@@ -222,6 +225,35 @@ pub fn hide_overlay(app: &AppHandle) {
             HIDING_IN_PROGRESS.store(false, Ordering::SeqCst);
         });
     });
+}
+
+/// Hides the overlay immediately and waits briefly for the native window call
+/// to run. Use this before paste injection so the window manager has a chance
+/// to restore keyboard focus to the target application.
+pub fn hide_overlay_before_paste(app: &AppHandle) {
+    cancel_pending_hide();
+    HIDING_IN_PROGRESS.store(false, Ordering::SeqCst);
+
+    let (tx, rx) = std::sync::mpsc::channel();
+    let handle = app.clone();
+
+    if app
+        .run_on_main_thread(move || {
+            if let Some(window) = handle.get_webview_window(OVERLAY_LABEL) {
+                let _ = window.hide();
+                let _ = window.set_focusable(false);
+                tracing::debug!("Overlay hidden before paste injection");
+            }
+
+            let _ = tx.send(());
+        })
+        .is_err()
+    {
+        return;
+    }
+
+    let _ = rx.recv_timeout(Duration::from_millis(250));
+    std::thread::sleep(Duration::from_millis(75));
 }
 
 /// Cancels any pending hide operation so the overlay stays visible.
