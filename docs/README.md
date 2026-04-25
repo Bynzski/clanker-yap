@@ -35,6 +35,7 @@ Clanker Yap is a local voice-to-text desktop application that enables real-time 
 |---------|-------------|
 | **Local Processing** | All transcription happens on your machine via whisper-rs |
 | **Push-to-Talk** | Global hotkey activates recording (default: `Ctrl+Shift+V`) |
+| **Recording Overlay** | Floating always-on-top pill with real-time FFT audio EQ visualization |
 | **Smart Paste** | Automatically pastes text with terminal-friendly modes |
 | **History** | SQLite-backed storage for recent transcriptions |
 | **Single Instance** | Ensures only one app instance runs at a time |
@@ -78,16 +79,19 @@ clanker-yap/
 ├── src/                    # Frontend assets
 │   ├── index.html          # Main UI
 │   ├── main.js             # Frontend logic
+│   ├── overlay.html        # Floating recording overlay pill
 │   └── style.css           # Styling
 ├── src-tauri/              # Rust backend
 │   ├── src/
 │   │   ├── domain/         # Core types and errors
 │   │   ├── application/    # Use cases and state
 │   │   ├── infrastructure/ # External integrations
-│   │   │   ├── audio/      # Recording and resampling
+│   │   │   ├── audio/      # Recording, resampling, FFT EQ
+│   │   │   │   ├── eq.rs   # FFT-based frequency band extraction
 │   │   │   ├── whisper/    # ML transcription
 │   │   │   ├── paste/      # Clipboard injection
-│   │   │   └── persistence/# SQLite storage
+│   │   │   ├── persistence/ # SQLite storage
+│   │   │   └── overlay.rs  # Floating overlay window
 │   │   └── presentation/   # Tauri commands
 │   ├── Cargo.toml
 │   └── tauri.conf.json

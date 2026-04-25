@@ -33,6 +33,7 @@ The app is currently configured for local Linux development and `.deb` packaging
 
 - Local transcription via `whisper-rs`
 - Push-to-talk global hotkey
+- **Recording overlay pill** — floating, always-on-top visual indicator with real-time FFT audio frequency visualization (EQ bars)
 - Clipboard + simulated paste injection, including terminal-friendly paste mode
 - SQLite-backed settings and transcription history
 - Single-instance app behavior
@@ -131,10 +132,11 @@ src-tauri/src/          Rust backend
 ├── domain/             core types and errors
 ├── application/        use cases and state
 ├── infrastructure/     external integrations
-│   ├── audio/         recording and resampling
+│   ├── audio/         recording, resampling, and FFT EQ
 │   ├── whisper/       ML transcription
 │   ├── paste/        clipboard injection
-│   └── persistence/   SQLite storage
+│   ├── persistence/   SQLite storage
+│   └── overlay.rs     floating always-on-top overlay window
 └── presentation/      Tauri commands
 ```
 

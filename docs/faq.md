@@ -11,10 +11,11 @@ Clanker Yap is a local voice-to-text transcription application. It converts your
 ### How does it work?
 
 1. **Hold** a configurable hotkey to start recording
-2. **Speak** into your microphone
-3. **Release** the hotkey to stop recording
+2. **Speak** into your microphone — a floating overlay pill appears showing FFT audio bars
+3. **Release** the hotkey to stop recording — overlay shows processing state
 4. **Audio** is transcribed locally using Whisper
 5. **Text** is automatically pasted into your active application
+6. **Overlay** disappears after transcription completes
 
 ### Is my audio sent to the cloud?
 
@@ -59,6 +60,16 @@ GGML-format Whisper models from [ggml-org/whisper.cpp](https://huggingface.co/gg
 - Input: Any format your microphone supports
 - Internal: 16kHz 16-bit mono (required by Whisper)
 - The app automatically resamples audio to the correct format.
+
+### What does the recording overlay show?
+
+A floating pill appears at the bottom of the screen while recording:
+
+- **7 FFT frequency bars** — react to your voice in real time (low bars = bass, high bars = treble)
+- **Recording state** — green/cyan gradient bars with a pulsing dot
+- **Processing state** — amber pulsing bars when transcription is running
+
+The overlay is always-on-top, click-through, and transparent.
 
 ### How much memory does it use?
 

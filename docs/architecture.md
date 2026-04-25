@@ -56,7 +56,8 @@ src-tauri/src/
 │   │   ├── mod.rs
 │   │   ├── recorder.rs    # cpal-based recording
 │   │   ├── device.rs      # Device enumeration
-│   │   └── resample.rs    # 48kHz → 16kHz conversion
+│   │   ├── resample.rs    # 48kHz → 16kHz conversion
+│   │   └── eq.rs          # FFT-based frequency band extraction
 │   ├── whisper/           # ML transcription
 │   │   ├── mod.rs
 │   │   ├── engine.rs      # whisper-rs wrapper
@@ -70,6 +71,7 @@ src-tauri/src/
 │       ├── paths.rs       # Path resolution
 │       ├── settings_repo.rs
 │       └── transcription_repo.rs
+└── overlay.rs         # Floating always-on-top overlay window
 └── presentation/          # Tauri interface
     ├── mod.rs
     └── commands/          # Tauri command handlers
@@ -133,7 +135,16 @@ pub enum RecordingState {
 ```
 recorder.rs   - Records audio via cpal
 device.rs     - Lists/selects audio devices
-resample.rs   - Converts 48kHz → 16kHz via rubato
+resample.rs   - 48kHz → 16kHz via rubato
+eq.rs        - FFT-based frequency band extraction (EqState)
+```
+
+**Overlay Module:**
+```
+overlay.rs     - Floating always-on-top recording indicator pill
+               - Thread-safe show/hide via run_on_main_thread
+               - GTK Layer Shell support for Wayland compositors
+               - X11 fallback via set_always_on_top
 ```
 
 **Whisper Module:**
@@ -174,6 +185,27 @@ transcription_repo.rs - History storage
 
 ## Data Flow
 
+### Recording Overlay
+
+A floating, always-on-top pill appears when recording starts:
+
+```
+Hold hotkey → recording-started event → overlay shown (recording state)
+                                               ↓
+         mic-level events → FFT EQ bars update in real-time
+                                               ↓
+Release hotkey → recording-stopped event → overlay transitions to processing state
+                                               ↓
+           Transcription completes → overlay hides after 150ms animation
+```
+
+**Key properties:**
+- Click-through (ignores cursor events)
+- Transparent background, no decorations or shadow
+- GTK Layer Shell on Wayland, X11 fallback on other Linux compositors
+- Emits 7 frequency band values (0.0–1.0) at ~30fps via `EqState` (FFT with realfft crate)
+- Frontend uses JS-side exponential smoothing (attack=0.45, decay=0.3) for fluid bar animations
+
 ### Recording Pipeline
 
 ```
@@ -181,6 +213,19 @@ transcription_repo.rs - History storage
 │   Hotkey   │────►│   cpal      │────►│   rubato     │────►│  whisper-rs │
 │  pressed   │     │  recorder   │     │  resampler   │     │  engine     │
 └────────────┘     └─────────────┘     └──────────────┘     └─────────────┘
+                   │                                              │
+                   │          ┌─────────────┐     ┌──────────────┐  │
+                   └─────────►│   EqState   │────►│  mic-level  │  │
+                   │ (FFT)     │  (eq.rs)    │     │   events    │  │
+                   │          └─────────────┘     └──────┬───────┘  │
+                   │                                     │          │
+                   │                                     ▼          │
+                   │                            ┌──────────────┐     │
+                   │                            │  Recording   │     │
+                   │                            │  Overlay      │     │
+                   │                            │  (EQ bars)     │     │
+                   │                            └──────────────┘     │
+                   └──────────────────────────────────────────────┘
                                                                       │
                                                                       ▼
                                                             ┌─────────────┐
@@ -311,6 +356,33 @@ pub enum AppError {
                                                          │    Done     │──► Idle
                                                          └─────────────┘
 ```
+
+### Overlay State Machine
+
+The overlay pill tracks the same recording state:
+
+```
+┌─────────┐  recording-started  ┌─────────────┐ recording-stopped ┌─────────────┐
+│  Hidden │─────────────────────►│  Recording  │──────────────────►│ Processing  │
+└─────────┘                       └─────────────┘                   └──────┬──────┘
+                                                                             │
+                                                    transcription-complete /  │
+                                                    transcription-error      │
+                                                                             │
+                                                                     ┌──────▼──────┐
+                                                                     │   Hidden    │
+                                                                     │ (150ms anim) │
+                                                                     └─────────────┘
+```
+
+**Overlay events:**
+| Event | Effect |
+|-------|--------|
+| `recording-started` | Pill appears with scale-in animation, EQ bars active |
+| `mic-level` | 7-band FFT values update EQ bar heights in real-time |
+| `recording-stopped` | Pill transitions to amber pulsing "Processing" state |
+| `transcription-complete` | Pill animates out, then window hidden |
+| `transcription-error` | Pill animates out, then window hidden |
 
 ## Testing Strategy
 
