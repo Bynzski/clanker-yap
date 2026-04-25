@@ -10,6 +10,7 @@ pub struct SettingsResponse {
     pub model_name: String,
     pub paste_mode: String,
     pub audio_input: Option<crate::domain::settings::AudioInputSelection>,
+    pub total_words: u64,
 }
 
 /// Information about the built-in model download option.

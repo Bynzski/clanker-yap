@@ -113,6 +113,12 @@ function onTranscriptionComplete(payload) {
     showStatus("idle", "Ready", "Awaiting shortcut");
     clearError();
 
+    // Refresh settings to get updated word count
+    invoke("get_settings").then((updated) => {
+        settings.total_words = updated.total_words;
+        updateToolbarHints(settings);
+    }).catch(console.error);
+
     const item = {
         id: generateId(),
         text: payload.text,
@@ -684,7 +690,12 @@ function formatPressedModifiers(modifiers) {
     return modifiers.length > 0 ? modifiers.join(" + ") : "Waiting for input";
 }
 
-function formatHotkeyForDisplay(value) {
+function formatWordCount(count) {
+    if (count === 0) return "0";
+    if (count >= 1000000) return (count / 1000000).toFixed(1) + "M";
+    if (count >= 1000) return (count / 1000).toFixed(1) + "k";
+    return String(count);
+}
     if (!value) {
         return "";
     }
@@ -1070,7 +1081,7 @@ function updateToolbarHints(nextSettings) {
     const hintModel = document.getElementById("hint-model");
     const hintMic = document.getElementById("hint-mic");
     const hintPaste = document.getElementById("hint-paste");
-    const hintHistory = document.getElementById("hint-history");
+    const hintWords = document.getElementById("hint-words");
 
     if (hintHotkey) hintHotkey.textContent = nextSettings.hotkey || "--";
     if (hintModel) hintModel.textContent = nextSettings.model_name || "--";
@@ -1085,7 +1096,7 @@ function updateToolbarHints(nextSettings) {
     }
 
     if (hintPaste) hintPaste.textContent = formatPasteMode(nextSettings.paste_mode);
-    if (hintHistory) hintHistory.textContent = String(transcriptions.length);
+    if (hintWords) hintWords.textContent = formatWordCount(nextSettings.total_words || 0);
 }
 
 async function submitMicrophone() {

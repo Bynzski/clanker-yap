@@ -385,7 +385,7 @@ fn pipeline(app: &AppHandle, state: &AppState, duration_ms: i64) {
         }
     };
 
-    if let Err(e) = transcription_usecase::save_transcription(&state.db, &transcription) {
+    if let Err(e) = transcription_usecase::save_transcription(&state.db, &transcription, state) {
         tracing::warn!(error = ?e, "Failed to persist transcription");
     }
 

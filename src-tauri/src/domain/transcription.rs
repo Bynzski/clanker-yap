@@ -57,12 +57,19 @@ impl Transcription {
     }
 }
 
+/// Counts words in the given text.
+/// Words are defined as contiguous sequences of non-whitespace characters.
+pub fn count_words(text: &str) -> usize {
+    text.split_whitespace().count()
+}
+
 #[cfg(test)]
 mod tests {
     use super::Transcription;
     use crate::domain::constants::{
         MAX_RECORDING_DURATION_MS, MAX_TRANSCRIPTION_LENGTH, MIN_RECORDING_DURATION_MS,
     };
+    use crate::domain::transcription::count_words;
 
     #[test]
     fn rejects_text_longer_than_max_length() {
@@ -81,5 +88,27 @@ mod tests {
         let too_long =
             Transcription::new("hello".into(), MAX_RECORDING_DURATION_MS + 1).unwrap_err();
         assert!(too_long.to_string().contains("exceeds maximum"));
+    }
+
+    #[test]
+    fn count_words_empty_string() {
+        assert_eq!(count_words(""), 0);
+    }
+
+    #[test]
+    fn count_words_single_word() {
+        assert_eq!(count_words("hello"), 1);
+    }
+
+    #[test]
+    fn count_words_multiple_words() {
+        assert_eq!(count_words("hello world"), 2);
+        assert_eq!(count_words("one two three four five"), 5);
+    }
+
+    #[test]
+    fn count_words_handles_whitespace() {
+        assert_eq!(count_words("  hello   world  "), 2);
+        assert_eq!(count_words("\tfoo\nbar\rbaz"), 3);
     }
 }

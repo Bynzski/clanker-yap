@@ -22,6 +22,7 @@ pub fn get_settings(state: State<'_, AppState>) -> Result<SettingsResponse> {
         model_name: settings.model_name.clone(),
         paste_mode: settings.paste_mode.clone(),
         audio_input: settings.audio_input.clone(),
+        total_words: settings.total_words,
     })
 }
 
