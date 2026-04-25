@@ -109,6 +109,12 @@ function onRecordingStopped(payload) {
     showStatus("processing", "Processing", duration);
 }
 
+function updateWordCountDisplay(totalWords) {
+    const displayEl = document.getElementById("word-count-display");
+    const valueEl = document.getElementById("word-count-value");
+    if (valueEl) valueEl.textContent = formatWordCount(totalWords || 0);
+}
+
 function onTranscriptionComplete(payload) {
     showStatus("idle", "Ready", "Awaiting shortcut");
     clearError();
@@ -116,7 +122,7 @@ function onTranscriptionComplete(payload) {
     // Refresh settings to get updated word count
     invoke("get_settings").then((updated) => {
         settings.total_words = updated.total_words;
-        updateToolbarHints(settings);
+        updateWordCountDisplay(updated.total_words);
     }).catch(console.error);
 
     const item = {
@@ -696,28 +702,8 @@ function formatWordCount(count) {
     if (count >= 1000) return (count / 1000).toFixed(1) + "k";
     return String(count);
 }
-    if (!value) {
-        return "";
-    }
 
-    return value
-        .split("+")
-        .map((part) => {
-            if (part === "CmdOrCtrl") return getCommandLabel();
-            if (part === "Alt") return "Alt";
-            if (part === "Shift") return "Shift";
-            if (part === "PageUp") return "Page Up";
-            if (part === "PageDown") return "Page Down";
-            if (part === "Left") return "Left Arrow";
-            if (part === "Right") return "Right Arrow";
-            if (part === "Up") return "Up Arrow";
-            if (part === "Down") return "Down Arrow";
-            return part;
-        })
-        .join(" + ");
-}
-
-function formatPasteMode(value) {
+function formatHotkeyForDisplay(value) {
     switch (value) {
         case "terminal":
             return "Terminal";
@@ -1081,7 +1067,6 @@ function updateToolbarHints(nextSettings) {
     const hintModel = document.getElementById("hint-model");
     const hintMic = document.getElementById("hint-mic");
     const hintPaste = document.getElementById("hint-paste");
-    const hintWords = document.getElementById("hint-words");
 
     if (hintHotkey) hintHotkey.textContent = nextSettings.hotkey || "--";
     if (hintModel) hintModel.textContent = nextSettings.model_name || "--";
@@ -1096,7 +1081,6 @@ function updateToolbarHints(nextSettings) {
     }
 
     if (hintPaste) hintPaste.textContent = formatPasteMode(nextSettings.paste_mode);
-    if (hintWords) hintWords.textContent = formatWordCount(nextSettings.total_words || 0);
 }
 
 async function submitMicrophone() {
