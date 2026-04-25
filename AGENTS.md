@@ -105,11 +105,25 @@ This is the cardinal rule. Violate it and the codebase rots.
 
 ```bash
 # Development (hot reload frontend, compile Rust in debug)
-cargo tauri dev
+npm run tauri:dev
 
-# Production build
-cargo tauri build
+# Production build (AppImage)
+npm run tauri:build
 ```
+
+### Tauri Build Notes for CachyOS / Arch Linux
+
+When building Tauri AppImages on Arch-based systems, always use:
+
+```bash
+NO_STRIP=1 npx tauri build
+```
+
+`NO_STRIP=1` is required because `linuxdeploy`'s bundled `strip` is too old for Arch's newer ELF format (`.relr.dyn` sections). Without it, the build fails with "unknown type \[0x13\] section `.relr.dyn'" errors on nearly every shared library.
+
+A warning about `__TAURI_BUNDLE_TYPE` not being found may appear when the `tauri-cli` and Rust `tauri` crate versions are slightly mismatched. This is harmless unless the app uses Tauri's auto-updater. Keep CLI and crate versions aligned before enabling updater-related release workflows.
+
+> **Agents:** Do not run plain `npx tauri build` on Arch/CachyOS. Always use `NO_STRIP=1 npx tauri build` or `npm run tauri:build`.
 
 ### Rust Backend (from `src-tauri/`)
 
