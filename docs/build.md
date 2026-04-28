@@ -1,406 +1,130 @@
 # Build & Release Guide
 
-How to build, package, and release Clanker Yap.
+This guide covers the current **0.1.0 Linux AppImage** release target for Clanker Yap.
 
-## Build Overview
+## Release target
 
-```
-Source Code ──► Rust Compilation ──► Tauri Bundle ──► Package
-                    │                      │
-                    ▼                      ▼
-               Debug/Release        .deb/.app/.exe
-```
+Clanker Yap currently ships as a:
+
+- **Linux x86_64 AppImage**
+
+Current status:
+- **Wayland:** smoke tested
+- **X11:** smoke tested
+- **macOS:** not yet supported as a release target
+- **Windows:** not yet supported as a release target
 
 ## Prerequisites
 
-### All Platforms
+Install:
 
-- Rust stable toolchain
+- Rust stable
 - Node.js and npm
-- Tauri CLI (installed via `npm install`)
+- Tauri CLI dependencies from `npm install`
 
-### Platform-Specific
+### Linux packages
 
-**Linux:**
-```sh
-sudo pacman -S --needed base-devel cmake webkit2gtk-4.1 \
-  libappindicator-gtk3 librsvg
-```
-
-**macOS:**
-```sh
-xcode-select --install
-```
-
-**Windows:**
-- Visual Studio Build Tools
-- WebView2 Runtime
-
-## Build Commands
-
-### Debug Build
-
-Quick build for development testing:
+#### Arch / CachyOS
 
 ```sh
-npm run tauri build -- --debug
+sudo pacman -S --needed base-devel cmake webkit2gtk-4.1 libappindicator-gtk3 librsvg nodejs npm
 ```
 
-**Output:** `src-tauri/target/debug/bundle/`
-
-### Release Build
-
-Production-ready build:
+#### Debian / Ubuntu
 
 ```sh
-npm run tauri build
+sudo apt install build-essential cmake libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev nodejs npm
 ```
 
-**Output:** `src-tauri/target/release/bundle/`
+#### Fedora
 
-## Build Output
-
-### Linux (.deb)
-
-```
-src-tauri/target/release/bundle/deb/
-└── Clanker Yap_0.1.0_amd64.deb
-```
-
-Install with:
 ```sh
-sudo dpkg -i "Clanker Yap_0.1.0_amd64.deb"
+sudo dnf install gcc-c++ cmake webkit2gtk4.1-devel libappindicator-gtk3-devel librsvg2-devel nodejs npm
 ```
 
-### macOS (.app)
+## Build commands
 
-```
-src-tauri/target/release/bundle/macos/
-└── Clanker Yap.app
-```
+### Development
 
-Install by copying to Applications:
 ```sh
-cp -R "Clanker Yap.app" /Applications/
+npm run tauri:dev
 ```
 
-### Windows (.exe/.msi)
+### Production AppImage
 
-```
-src-tauri/target/release/bundle/
-├── msi/Clanker Yap_0.1.0_x64_en-US.msi
-└── exe/Clanker Yap_0.1.0_x64-setup.exe
+```sh
+npm run tauri:build
 ```
 
-## Build Configuration
+> `tauri:build` already includes `NO_STRIP=1`, which is required on Arch/CachyOS for AppImage builds.
 
-### Bundle Targets
+## Output
 
-Configure in `src-tauri/tauri.conf.json`:
+Successful release builds produce:
 
-```json
-{
-  "bundle": {
-    "targets": "all"
-  }
-}
+```text
+src-tauri/target/release/bundle/appimage/Clanker Yap_0.1.0_amd64.AppImage
 ```
 
-**Options:**
-- `"all"` - Build for current platform
-- `"deb"` - Linux only
-- `["deb", "app", "msi"]` - Specific targets
+## Run the AppImage
 
-### App Identifier
-
-Unique identifier for the app:
-
-```json
-{
-  "identifier": "dev.jay.voice-transcribe"
-}
+```sh
+chmod +x "src-tauri/target/release/bundle/appimage/Clanker Yap_0.1.0_amd64.AppImage"
+./src-tauri/target/release/bundle/appimage/Clanker\ Yap_0.1.0_amd64.AppImage
 ```
 
-**Format:** `domain.reversed.app-name`
+## Release verification
 
-### Window Configuration
+Before publishing, verify:
 
-```json
-{
-  "app": {
-    "windows": [{
-      "label": "main",
-      "title": "Clanker Yap",
-      "width": 480,
-      "height": 196,
-      "resizable": false,
-      "decorations": false,
-      "center": true
-    }]
-  }
-}
-```
+1. `cd src-tauri && cargo test`
+2. `cd src-tauri && cargo clippy -- -D warnings`
+3. `cd src-tauri && cargo fmt --check`
+4. `npm run tauri:build`
+5. Launch the AppImage manually
+6. Test the push-to-talk workflow in a real app
+7. Confirm the model can be downloaded or loaded from disk
+8. Confirm settings, history, and cumulative word count persist across restart
 
-### App Metadata
+## Recommended smoke test matrix
 
-```json
-{
-  "productName": "Clanker Yap",
-  "version": "0.1.0",
-  "copyright": "Copyright 2024",
-  "category": "Productivity"
-}
-```
+### Session types
 
-## Release Workflow
+- Wayland
+- X11
 
-### 1. Update Version
+### User flows
 
-Update `version` in:
+- App launches from the AppImage
+- Global hotkey registers successfully
+- Hold-to-record / release-to-transcribe works
+- Text pastes into a text editor
+- Text pastes into a terminal using terminal paste mode
+- Overlay appears and hides correctly
+- Microphone selection works
+- Model download/setup works
+- Restart preserves settings and history
+
+## Release artifacts
+
+For a 0.1.0 release, publish:
+
+- `Clanker Yap_0.1.0_amd64.AppImage`
+- SHA256 checksum
+- release notes
+- a short note that Linux AppImage is the only supported release target for 0.1.0
+- a short note that Wayland and X11 were smoke tested
+
+## Versioning
+
+For each release, update the version in:
+
 - `src-tauri/tauri.conf.json`
 - `src-tauri/Cargo.toml`
-- Optionally `package.json`
+- `package.json` (optional but recommended to keep aligned)
 
-### 2. Test Everything
+## Notes
 
-```sh
-# Run all tests
-cargo test --manifest-path src-tauri/Cargo.toml
-
-# Build release
-npm run tauri build
-
-# Test installed app
-./Clanker\ Yap
-```
-
-### 3. Build Release
-
-```sh
-npm run tauri build
-```
-
-### 4. Verify Artifacts
-
-Check all output files:
-- Sizes are reasonable
-- Binaries are executable
-- Package installs correctly
-
-### 5. Create Release
-
-For GitHub releases:
-
-1. Create git tag: `git tag v0.1.0`
-2. Push tag: `git push origin v0.1.0`
-3. Create GitHub release with artifacts
-
-## Continuous Integration
-
-### GitHub Actions Example
-
-```yaml
-name: Build and Release
-
-on:
-  push:
-    tags:
-      - 'v*'
-
-jobs:
-  build:
-    strategy:
-      matrix:
-        include:
-          - platform: 'ubuntu-22.04'
-            artifact: '.deb'
-          - platform: 'macos-13'
-            artifact: '.app'
-          - platform: 'windows-2022'
-            artifact: '.exe'
-
-    runs-on: ${{ matrix.platform }}
-
-    steps:
-      - uses: actions/checkout@v4
-      
-      - name: Install Rust
-        uses: dtolnay/rust-toolchain@stable
-        
-      - name: Install dependencies
-        run: |
-          npm install
-          # Platform-specific deps
-      
-      - name: Build
-        run: npm run tauri build
-        
-      - name: Upload artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: clanker-yap-${{ matrix.platform }}
-          path: src-tauri/target/release/bundle/**
-```
-
-## Code Signing
-
-### macOS
-
-1. Obtain Apple Developer certificate
-2. Sign app bundle:
-
-```sh
-codesign --force --deep --sign "Developer ID: Name" "Clanker Yap.app"
-```
-
-3. Notarize:
-
-```sh
-xcrun notarytool submit "Clanker Yap.app" --apple-api-key ...
-```
-
-### Windows
-
-1. Obtain code signing certificate
-2. Sign executable:
-
-```sh
-signtool sign /f certificate.pfx /p password app.exe
-```
-
-## Uninstall
-
-### Linux (.deb)
-
-```sh
-sudo dpkg -r clanker-yap
-```
-
-### macOS
-
-Remove from Applications:
-```sh
-rm -rf /Applications/Clanker\ Yap.app
-```
-
-Also remove supporting files:
-```sh
-rm -rf ~/Library/Application\ Support/dev.jay.voice-transcribe
-rm -rf ~/Library/Preferences/dev.jay.voice-transcribe.plist
-```
-
-### Windows
-
-Use "Add or Remove Programs" or:
-
-```sh
-winget uninstall clanker-yap
-```
-
-## Troubleshooting Build Issues
-
-### Missing WebKit
-
-**Error:** `error: failed to run custom build command for 'webkit2gtk'`
-
-**Solution:** Install webkit development libraries:
-```sh
-# Debian/Ubuntu
-sudo apt install libwebkit2gtk-4.1-dev
-
-# Fedora
-sudo dnf install webkit2gtk4.1-devel
-```
-
-### Missing CMake
-
-**Error:** `Could not find CMake`
-
-**Solution:**
-```sh
-# Install CMake
-sudo pacman -S cmake  # Linux
-brew install cmake     # macOS
-```
-
-### Linker Errors
-
-**Error:** `linker gcc not found`
-
-**Solution:** Install build tools:
-```sh
-# Linux
-sudo pacman -S base-devel
-
-# macOS
-xcode-select --install
-```
-
-### Target Triple Mismatch
-
-**Error:** `package target mismatch`
-
-**Solution:** Clean and rebuild:
-```sh
-cargo clean --manifest-path src-tauri/Cargo.toml
-npm run tauri build
-```
-
-## Artifact Sizes
-
-Typical release build sizes:
-
-| Component | Size |
-|-----------|------|
-| Rust binary | ~15-20 MB |
-| WebView (Linux) | Bundled |
-| Total .deb | ~50-60 MB |
-| Total .app | ~60-80 MB |
-
-## Performance Optimization
-
-### Release Profile
-
-Configured in `src-tauri/Cargo.toml`:
-
-```toml
-[profile.release]
-lto = true
-codegen-units = 1
-panic = "abort"
-strip = true
-```
-
-### Build Time Optimization
-
-```toml
-[profile.dev]
-opt-level = 0  # Faster debug builds
-debug = false
-```
-
-## Validation Script
-
-Create `validate-build.sh`:
-
-```bash
-#!/bin/bash
-set -e
-
-echo "Running tests..."
-cargo test --manifest-path src-tauri/Cargo.toml
-
-echo "Building release..."
-npm run tauri build
-
-echo "Checking artifacts..."
-ls -la src-tauri/target/release/bundle/deb/
-
-echo "Build complete!"
-```
-
-Run with:
-```sh
-chmod +x validate-build.sh
-./validate-build.sh
-```
+- Clanker Yap is currently optimized for Linux desktop usage.
+- Packaging is AppImage-first for 0.1.0.
+- Future macOS and Windows support can be added later, but they are not part of this release.

@@ -108,7 +108,7 @@ Yes. The transcribed text is also copied to your clipboard. You can paste manual
 
 1. Wait for current transcription to complete
 2. If still unresponsive, close and restart the app
-3. Check logs with `RUST_LOG=trace npm run tauri dev`
+3. Check logs with `RUST_LOG=trace npm run tauri:dev`
 
 ## Configuration
 
@@ -236,7 +236,9 @@ Create a feature request issue with:
 
 ### Will there be a macOS/Windows build?
 
-Currently Linux `.deb` is the primary target, but Tauri supports macOS and Windows builds. See [Build Guide](./build.md) for building on other platforms.
+Possibly later, but not for the 0.1.0 release target.
+
+Right now Clanker Yap ships as a Linux AppImage and has been smoke tested on both Wayland and X11. macOS and Windows builds are not yet part of the supported release workflow.
 
 ### Can I use a larger model?
 

@@ -16,7 +16,7 @@ Many issues are resolved by restarting:
 Enable verbose logging and check output:
 
 ```sh
-RUST_LOG=trace npm run tauri dev 2>&1 | head -100
+RUST_LOG=trace npm run tauri:dev 2>&1 | head -100
 ```
 
 ## Installation Issues
@@ -110,7 +110,7 @@ package target mismatch for package X
 ```sh
 cargo clean --manifest-path src-tauri/Cargo.toml
 rm -rf node_modules/.cache
-npm run tauri build
+npm run tauri:build
 ```
 
 ## Runtime Issues
@@ -307,7 +307,7 @@ Get-PnpDevice -Class AudioEndpoint
 
 1. Check for errors:
    ```sh
-   npm run tauri dev 2>&1 | head -50
+   npm run tauri:dev 2>&1 | head -50
    ```
 
 2. Check for existing process:
@@ -326,7 +326,7 @@ Get-PnpDevice -Class AudioEndpoint
 1. **Delete database and restart:**
    ```sh
    rm ~/.local/share/voice-transcribe/voice-transcribe.db
-   npm run tauri dev
+   npm run tauri:dev
    ```
 
 2. **Check for missing dependencies:**
@@ -336,7 +336,7 @@ Get-PnpDevice -Class AudioEndpoint
 
 3. **Try debug mode:**
    ```sh
-   RUST_BACKTRACE=1 npm run tauri dev
+   RUST_BACKTRACE=1 npm run tauri:dev
    ```
 
 ## Performance Issues
@@ -396,7 +396,7 @@ Get-PnpDevice -Class AudioEndpoint
 2. Delete and restart:
    ```sh
    rm ~/.local/share/voice-transcribe/voice-transcribe.db
-   npm run tauri dev
+   npm run tauri:dev
    ```
 
 ## Getting Help
@@ -424,7 +424,7 @@ node --version >> debug.txt
 echo "=== Build Check ===" >> debug.txt
 cargo check --manifest-path src-tauri/Cargo.toml 2>&1 >> debug.txt
 echo "=== Log ===" >> debug.txt
-RUST_LOG=trace npm run tauri dev 2>&1 | head -100 >> debug.txt
+RUST_LOG=trace npm run tauri:dev 2>&1 | head -100 >> debug.txt
 ```
 
 Include `debug.txt` in your issue.

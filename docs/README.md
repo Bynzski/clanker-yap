@@ -6,11 +6,16 @@ Complete documentation for the Clanker Yap voice transcription application.
 
 Clanker Yap is a local voice-to-text desktop application that enables real-time transcription using the Whisper machine learning model. Your voice recordings never leave your machine, ensuring complete privacy.
 
+Current shipping target:
+- Linux x86_64 AppImage
+- Smoke tested on Wayland and X11
+
 ## Documentation Index
 
 ### Getting Started
-- **[Installation](./getting-started.md)** - System requirements and installation steps
+- **[Installation](./getting-started.md)** - Linux setup and first run
 - **[Quick Start](./quick-start.md)** - Get up and running in minutes
+- **[Release Checklist](./release-checklist.md)** - 0.1.0 Linux AppImage release checklist
 
 ### Configuration
 - **[Configuration Guide](./configuration.md)** - All configuration options explained
@@ -19,7 +24,7 @@ Clanker Yap is a local voice-to-text desktop application that enables real-time 
 ### Development
 - **[Architecture](./architecture.md)** - Project structure and design decisions
 - **[Development Guide](./development.md)** - Setting up for local development
-- **[Build & Release](./build.md)** - Building releases for distribution
+- **[Build & Release](./build.md)** - Building and packaging the Linux AppImage release
 
 ### Reference
 - **[Command Reference](./commands.md)** - CLI and Tauri commands

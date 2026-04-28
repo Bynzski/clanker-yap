@@ -6,7 +6,10 @@
   "scripts": {
     "tauri": "tauri",
     "tauri:build": "NO_STRIP=1 npx tauri build",
-    "tauri:dev": "npx tauri dev"
+    "tauri:dev": "npx tauri dev",
+    "verify:rust": "cd src-tauri && cargo test && cargo clippy -- -D warnings && cargo fmt --check",
+    "release:verify": "npm run verify:rust && npm run tauri:build",
+    "hooks:install": "git config core.hooksPath .githooks"
   },
   "devDependencies": {
     "@tauri-apps/api": "^2.10.1",
