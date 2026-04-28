@@ -18,6 +18,22 @@ enum RecorderCmd {
     Shutdown,
 }
 
+fn finalize_recording(samples: &[f32], sample_rate: u32) -> Vec<f32> {
+    let resampled = super::resample::resample(samples, sample_rate, WHISPER_SAMPLE_RATE);
+    let duration_ms = resampled.len() as i64 * 1000 / WHISPER_SAMPLE_RATE as i64;
+
+    if duration_ms < MIN_RECORDING_DURATION_MS {
+        tracing::info!(
+            duration_ms,
+            min_duration_ms = MIN_RECORDING_DURATION_MS,
+            "recorder_thread: treating short capture as empty recording"
+        );
+        Vec::new()
+    } else {
+        resampled
+    }
+}
+
 /// Handle to the audio recorder worker thread.
 pub struct RecorderHandle {
     cmd_tx: Sender<RecorderCmd>,
@@ -241,25 +257,14 @@ fn recorder_thread(
                 let samples = buffer_clone.lock().split_off(0);
                 tracing::debug!("recorder_thread: collected {} raw samples", samples.len());
 
-                let resampled =
-                    super::resample::resample(&samples, sample_rate, WHISPER_SAMPLE_RATE);
+                let finalized = finalize_recording(&samples, sample_rate);
                 tracing::debug!(
-                    "recorder_thread: resampled to {} samples ({} Hz)",
-                    resampled.len(),
+                    "recorder_thread: finalized {} samples ({} Hz)",
+                    finalized.len(),
                     WHISPER_SAMPLE_RATE
                 );
 
-                let duration_ms = resampled.len() as i64 * 1000 / WHISPER_SAMPLE_RATE as i64;
-                if duration_ms < MIN_RECORDING_DURATION_MS {
-                    tracing::warn!(
-                        duration_ms,
-                        "recorder_thread: audio too short (< {}ms minimum)",
-                        MIN_RECORDING_DURATION_MS
-                    );
-                    let _ = result_tx.send(Err(AppError::Audio("Recording too short".into())));
-                } else {
-                    let _ = result_tx.send(Ok(resampled));
-                }
+                let _ = result_tx.send(Ok(finalized));
             }
             Ok(RecorderCmd::Shutdown) | Err(_) => {
                 if let Some(s) = stream.take() {
@@ -268,5 +273,33 @@ fn recorder_thread(
                 break;
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::finalize_recording;
+    use crate::domain::constants::{MIN_RECORDING_DURATION_MS, WHISPER_SAMPLE_RATE};
+
+    #[test]
+    fn finalize_recording_returns_empty_for_short_capture() {
+        let short_duration_ms = MIN_RECORDING_DURATION_MS - 1;
+        let short_samples =
+            vec![0.0; (WHISPER_SAMPLE_RATE as i64 * short_duration_ms / 1000) as usize];
+
+        let finalized = finalize_recording(&short_samples, WHISPER_SAMPLE_RATE);
+
+        assert!(finalized.is_empty());
+    }
+
+    #[test]
+    fn finalize_recording_keeps_valid_capture() {
+        let valid_duration_ms = MIN_RECORDING_DURATION_MS + 50;
+        let valid_samples =
+            vec![0.0; (WHISPER_SAMPLE_RATE as i64 * valid_duration_ms / 1000) as usize];
+
+        let finalized = finalize_recording(&valid_samples, WHISPER_SAMPLE_RATE);
+
+        assert_eq!(finalized.len(), valid_samples.len());
     }
 }

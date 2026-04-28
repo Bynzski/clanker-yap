@@ -119,6 +119,10 @@ function onTranscriptionComplete(payload) {
     showStatus("idle", "Ready", "Awaiting shortcut");
     clearError();
 
+    if (!payload.text) {
+        return;
+    }
+
     // Refresh settings to get updated word count
     invoke("get_settings").then((updated) => {
         settings.total_words = updated.total_words;
