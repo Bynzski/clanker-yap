@@ -1,157 +1,166 @@
 # Clanker Yap
 
-Local voice-to-text desktop application built with Tauri v2, Rust, and a vanilla HTML/JS/CSS frontend.
+<p align="center">
+  <img src="docs/assets/clanker-yap-hero.png" alt="Clanker Yap app preview" width="100%" />
+</p>
 
-## Documentation
+**Clanker Yap** is a local-first push-to-talk dictation app for people who live in terminals, editors, and desktop workflows.
 
-Full documentation is available in the [`docs/`](docs/) folder:
+Hold a hotkey, speak, release, and your text is transcribed locally and pasted into the app you already have focused.
 
-| Document | Description |
-|----------|-------------|
-| [docs/README.md](docs/README.md) | Documentation index |
-| [docs/getting-started.md](docs/getting-started.md) | Installation and setup |
-| [docs/quick-start.md](docs/quick-start.md) | Get running in 5 minutes |
-| [docs/configuration.md](docs/configuration.md) | All configuration options |
-| [docs/whisper-models.md](docs/whisper-models.md) | Model selection guide |
-| [docs/architecture.md](docs/architecture.md) | Project structure and design |
-| [docs/development.md](docs/development.md) | Local development guide |
-| [docs/build.md](docs/build.md) | Building releases |
-| [docs/troubleshooting.md](docs/troubleshooting.md) | Common issues and solutions |
-| [docs/faq.md](docs/faq.md) | Frequently asked questions |
-| [docs/commands.md](docs/commands.md) | Tauri command reference |
-| [docs/api.md](docs/api.md) | Internal Rust API docs |
+## Why Clanker Yap?
 
-## Pipeline
+- **100% local transcription** — your audio stays on your machine
+- **Fast push-to-talk workflow** — hold to record, release to paste
+- **Built for real desktop use** — works across apps, not just inside one editor
+- **Terminal-friendly paste modes** — better behavior for shells and terminal apps
+- **Minimal UI** — configure it once, then mostly forget it exists
 
-```
-Hold hotkey -> record -> release hotkey -> transcribe locally -> paste text
+## How it works
+
+```text
+Hold hotkey → record → release → transcribe locally → paste text
 ```
 
-The app is currently configured for local Linux development and `.deb` packaging.
+Default hotkey: `Ctrl+Shift+V`
 
 ## Features
 
-- Local transcription via `whisper-rs`
-- Push-to-talk global hotkey
-- **Recording overlay pill** — floating, always-on-top visual indicator with real-time FFT audio frequency visualization (EQ bars)
-- Clipboard + simulated paste injection, including terminal-friendly paste mode
-- SQLite-backed settings and transcription history
-- Single-instance app behavior
-- Built-in download flow for the default `ggml-base.en.bin` model
+- Local speech-to-text with `whisper.cpp` via `whisper-rs`
+- Global push-to-talk shortcut
+- Floating recording overlay with live mic level visualization
+- Clipboard + paste injection
+- Paste modes for standard apps and terminals
+- SQLite-backed settings, transcription history, and cumulative word count
+- Built-in model download support for `ggml-base.en.bin`
+- Single-instance desktop behavior
 
-## Prerequisites
+## Privacy
 
-Linux packages:
+Clanker Yap is designed to run **entirely on-device**.
+
+- No cloud transcription
+- No audio upload
+- No account required
+- No external service in the transcription path
+
+## Current status
+
+Clanker Yap is actively developed and currently ships as a **Linux x86_64 AppImage**.
+
+Release confidence notes for `0.1.0`:
+- **Wayland:** smoke tested
+- **X11:** smoke tested
+- **macOS / Windows:** not yet supported as release targets
+
+## Quick start
+
+### 1) Install dependencies
+
+#### Arch / CachyOS
 
 ```sh
 sudo pacman -S --needed base-devel cmake webkit2gtk-4.1 libappindicator-gtk3 librsvg nodejs npm
 ```
 
-Required tools:
+#### Debian / Ubuntu
+
+```sh
+sudo apt install build-essential cmake libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev nodejs npm
+```
+
+#### Fedora
+
+```sh
+sudo dnf install gcc-c++ cmake webkit2gtk4.1-devel libappindicator-gtk3-devel librsvg2-devel nodejs npm
+```
+
+Also install:
 
 - Rust stable toolchain
 - Node.js and npm
-- `cmake`
-- system WebKit/AppIndicator libraries for Tauri on Linux
 
-If Rust is not installed:
+### 2) Clone and install
 
 ```sh
-rustup default stable
-```
-
-Install project dependencies:
-
-```sh
+git clone https://github.com/Bynzski/clanker-yap.git
+cd clanker-yap
 npm install
 ```
 
-## Model File
+### 3) Run the app
 
-The app expects a Whisper GGML model file at:
-
+```sh
+npm run tauri:dev
 ```
+
+### 4) Download a Whisper model
+
+Clanker Yap expects a local GGML Whisper model. The default path is:
+
+```text
 ~/.local/share/voice-transcribe/ggml-base.en.bin
 ```
 
-Download one from:
+You can either:
 
-- [ggml-org/whisper.cpp](https://huggingface.co/ggml-org/whisper.cpp/tree/main)
+- download it from inside the app, or
+- download it manually from [whisper.cpp on Hugging Face](https://huggingface.co/ggml-org/whisper.cpp/tree/main)
 
-`ggml-base.en.bin` is the default expected model.
+## Basic usage
 
-The repository does not include:
-
-- Whisper model files
-- local SQLite databases
-- build artifacts
-- `node_modules`
-
-## Run
-
-Development:
-
-```sh
-npm run tauri dev
-```
-
-The first launch may require microphone permission depending on platform/session configuration.
-
-## Verify
-
-Rust checks:
-
-```sh
-cargo check --manifest-path src-tauri/Cargo.toml
-cargo test --manifest-path src-tauri/Cargo.toml
-```
+1. Open any app where you want text inserted
+2. Hold the global hotkey
+3. Speak
+4. Release the hotkey
+5. Clanker Yap transcribes locally and pastes the result
 
 ## Build
 
-Debug app bundle for this machine:
+For development:
 
 ```sh
-npm run tauri build -- --debug
+npm run tauri:dev
 ```
 
-Current Linux bundle target:
+For production builds on Arch-based systems, use:
 
-- `.deb`
-
-Expected output:
-
-```
-src-tauri/target/debug/bundle/deb/Clanker Yap_0.1.0_amd64.deb
+```sh
+npm run tauri:build
 ```
 
-## Project Layout
+> `tauri:build` already includes the required `NO_STRIP=1` workaround for Arch/CachyOS AppImage builds.
 
-```
-src/                    frontend
-src-tauri/src/          Rust backend
-├── domain/             core types and errors
-├── application/        use cases and state
-├── infrastructure/     external integrations
-│   ├── audio/         recording, resampling, and FFT EQ
-│   ├── whisper/       ML transcription
-│   ├── paste/        clipboard injection
-│   ├── persistence/   SQLite storage
-│   └── overlay.rs     floating always-on-top overlay window
-└── presentation/      Tauri commands
-```
+## Documentation
 
-## License
+Top-level release docs:
 
-See [LICENSE](./LICENSE)
+- [CHANGELOG.md](CHANGELOG.md)
+- [RELEASING.md](RELEASING.md)
+
+More detailed docs live in [`docs/`](docs/):
+
+- [Quick Start](docs/quick-start.md)
+- [Getting Started](docs/getting-started.md)
+- [Configuration](docs/configuration.md)
+- [Whisper Models](docs/whisper-models.md)
+- [Troubleshooting](docs/troubleshooting.md)
+- [Development](docs/development.md)
+- [Architecture](docs/architecture.md)
+- [Release Checklist](docs/release-checklist.md)
+
+## Tech stack
+
+- **Tauri v2**
+- **Rust** backend
+- **Vanilla HTML/CSS/JS** frontend
+- **whisper-rs / whisper.cpp** for local transcription
+- **SQLite** for settings and history
 
 ## Contributing
 
-See [CONTRIBUTING.md](./CONTRIBUTING.md)
+See [CONTRIBUTING.md](CONTRIBUTING.md).
 
-## Code of Conduct
+## License
 
-See [CODE_OF_CONDUCT.md](./CODE_OF_CONDUCT.md)
-
-## Security
-
-See [SECURITY.md](./SECURITY.md)
+See [LICENSE](LICENSE).

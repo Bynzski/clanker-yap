@@ -23,7 +23,7 @@ curl -L "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-base.en.
   -o ~/.local/share/voice-transcribe/ggml-base.en.bin
 
 # 5. Run
-npm run tauri dev
+npm run tauri:dev
 ```
 
 ## What Just Happened?
@@ -34,7 +34,7 @@ Here's what each step does:
 |------|--------------|
 | `npm install` | Installs Tauri CLI and frontend dependencies |
 | Model download | Fetches the Whisper GGML model (~148 MB) |
-| `npm run tauri dev` | Compiles Rust, launches the app window |
+| `npm run tauri:dev` | Compiles Rust, launches the app window |
 
 ## The Recording Flow
 

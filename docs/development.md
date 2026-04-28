@@ -94,7 +94,7 @@ clanker-yap/
 ### Start Development Server
 
 ```sh
-npm run tauri dev
+npm run tauri:dev
 ```
 
 This command:
@@ -113,7 +113,7 @@ Changes to Rust code trigger recompilation automatically.
 For verbose logging, set the `RUST_LOG` environment variable:
 
 ```sh
-RUST_LOG=trace npm run tauri dev
+RUST_LOG=trace npm run tauri:dev
 ```
 
 ## Rust Development
@@ -296,7 +296,7 @@ cargo test --manifest-path src-tauri/Cargo.toml -- --nocapture
 ### Frontend Testing
 
 Manual testing for frontend:
-1. `npm run tauri dev`
+1. `npm run tauri:dev`
 2. Interact with the app
 3. Check console for errors
 
@@ -361,10 +361,10 @@ fn my_function() {
 
 ```sh
 # Enable all logging
-RUST_LOG=trace npm run tauri dev
+RUST_LOG=trace npm run tauri:dev
 
 # Enable specific module
-RUST_LOG=voice_transcribe=debug npm run tauri dev
+RUST_LOG=voice_transcribe=debug npm run tauri:dev
 ```
 
 #### GDB/LLDB
@@ -420,38 +420,24 @@ Debug paste mode:
 3. Watch console for errors
 4. Try different paste modes
 
-## Building for Different Platforms
+## Building for Local Release Testing
 
-### Linux
+Current release target:
+- Linux x86_64 AppImage
 
-```sh
-# Build .deb package
-npm run tauri build
-
-# Output location
-src-tauri/target/release/bundle/deb/
-```
-
-### macOS
-
-Install required tools:
-```sh
-xcode-select --install
-brew install cmake
-```
-
-Build:
-```sh
-npm run tauri build
-```
-
-### Windows
-
-Install Visual Studio Build Tools, then:
+Build it with:
 
 ```sh
-npm run tauri build
+npm run tauri:build
 ```
+
+Output location:
+
+```text
+src-tauri/target/release/bundle/appimage/
+```
+
+For current packaging and release expectations, see [Build & Release](./build.md).
 
 ## Contributing
 

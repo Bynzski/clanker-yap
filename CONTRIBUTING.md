@@ -22,15 +22,20 @@ npm install
 Run the app in development:
 
 ```sh
-npm run tauri dev
+npm run tauri:dev
+```
+
+Install the repository Git hooks:
+
+```sh
+npm run hooks:install
 ```
 
 Run verification before opening a pull request:
 
 ```sh
-cargo check --manifest-path src-tauri/Cargo.toml
-cargo test --manifest-path src-tauri/Cargo.toml
-npm run tauri build -- --debug
+npm run verify:rust
+npm run tauri:build
 ```
 
 ## Project Conventions
@@ -40,6 +45,23 @@ npm run tauri build -- --debug
 - Prefer small, reviewable pull requests over broad refactors.
 - Preserve local-first behavior. Do not add cloud transcription or analytics.
 - Do not commit local model files, databases, build artifacts, or `node_modules`.
+
+## Commit Messages
+
+Use Conventional Commits:
+
+```text
+<type>[optional scope]: <description>
+```
+
+Examples:
+- `fix: handle short push-to-talk capture`
+- `docs(release): update 0.1.0 release process`
+- `feat(settings): add cumulative word count`
+
+The repo includes Git hooks for:
+- commit message validation
+- pre-push Rust verification
 
 ## Pull Requests
 
@@ -63,3 +85,10 @@ Bug reports are most useful when they include:
 - reproduction steps
 
 For terminal paste issues, include the terminal application name.
+
+## Release Process
+
+See:
+- [RELEASING.md](./RELEASING.md)
+- [CHANGELOG.md](./CHANGELOG.md)
+- [docs/release-checklist.md](./docs/release-checklist.md)
