@@ -276,6 +276,7 @@ function updateSettingsUI(nextSettings) {
         }
     }
 
+    updateWordCountDisplay(nextSettings.total_words);
     updateMicrophoneStatus(nextSettings);
     updateToolbarHints(nextSettings);
 }

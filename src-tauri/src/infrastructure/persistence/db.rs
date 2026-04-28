@@ -23,6 +23,16 @@ impl Db {
         let db_path = data_dir.join("voice-transcribe.db");
         let conn = Connection::open(&db_path).map_err(AppError::Sqlite)?;
 
+        Self::from_connection(conn)
+    }
+
+    #[cfg(test)]
+    pub fn open_in_memory() -> Result<Self> {
+        let conn = Connection::open_in_memory().map_err(AppError::Sqlite)?;
+        Self::from_connection(conn)
+    }
+
+    fn from_connection(conn: Connection) -> Result<Self> {
         conn.execute_batch(
             r#"
             CREATE TABLE IF NOT EXISTS app_settings (
