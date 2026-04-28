@@ -85,7 +85,24 @@ pub fn create_overlay(app: &AppHandle) -> Result<(), String> {
         .resizable(false);
 
     let window = builder.build().map_err(|e| e.to_string())?;
-    let _window = &window;
+
+    // Prevent the overlay from stealing focus when it maps (appears on screen).
+    // Without this, GTK defaults focus_on_map=true, which causes the window manager
+    // to give focus to the overlay when show() is called. On X11, this focus change
+    // generates synthetic KeyRelease events that break the global hotkey grab,
+    // causing push-to-talk to immediately stop recording.
+    //
+    // accept_focus=false is already set via Tauri's .focusable(false), but that
+    // only prevents *subsequent* focus — focus_on_map prevents focus on the initial
+    // map (show) event, which is the critical moment.
+    #[cfg(target_os = "linux")]
+    {
+        use gtk::prelude::GtkWindowExt;
+        if let Ok(gtk_win) = window.gtk_window() {
+            gtk_win.set_focus_on_map(false);
+            tracing::debug!("Overlay: set focus_on_map=false at creation");
+        }
+    }
 
     // Initialize GTK Layer Shell on Linux for Wayland overlay positioning.
     // Only compiled when the `wayland-overlay` feature is enabled and the
@@ -147,6 +164,18 @@ pub fn show_overlay(app: &AppHandle) {
             // Re-apply always-on-top as some compositors drop it (X11 fallback path)
             let _ = window.set_always_on_top(true);
             let _ = window.set_focusable(false);
+
+            // Re-apply focus_on_map=false before showing. Belt-and-suspenders
+            // since we also set it at creation time, but some GTK versions or
+            // window managers may reset it.
+            #[cfg(target_os = "linux")]
+            {
+                use gtk::prelude::GtkWindowExt;
+                if let Ok(gtk_win) = window.gtk_window() {
+                    gtk_win.set_focus_on_map(false);
+                }
+            }
+
             let _ = window.show();
 
             // Set click-through now that the window is visible.

@@ -5282,6 +5282,7 @@ dependencies = [
  "crossbeam-channel",
  "dirs 5.0.1",
  "enigo",
+ "gtk",
  "gtk-layer-shell",
  "hound",
  "num_cpus",
