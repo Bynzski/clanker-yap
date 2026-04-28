@@ -46,3 +46,6 @@ realfft = "3"
 [target.'cfg(target_os = "linux")'.dependencies]
 # GTK Layer Shell for Wayland overlay positioning. Only used when the `wayland-overlay` feature is enabled.
 gtk-layer-shell = { version = "0.8", features = ["v0_6"], optional = true }
+# GTK3 crate — needed for low-level window property access (e.g. focus_on_map) on the overlay.
+# Already a transitive dependency via Tauri; listing it here lets us import gtk::prelude traits.
+gtk = { version = "0.18", features = ["v3_24"] }
