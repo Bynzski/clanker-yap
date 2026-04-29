@@ -6,13 +6,15 @@ The format is inspired by [Keep a Changelog](https://keepachangelog.com/en/1.1.0
 
 ## [Unreleased]
 
+## [0.1.1] - 2026-04-29
+
 ### Added
 - Release process documentation in `RELEASING.md`
 - Git hook workflow for commit-message validation and pre-push verification
 - `docs/release-checklist.md` for Linux AppImage release prep
 
 ### Changed
-- README and release-facing docs now reflect the Linux AppImage 0.1.0 target
+- README and release-facing docs now reflect the Linux AppImage release target
 - Documentation now explicitly notes Wayland and X11 smoke-test coverage
 - Recorder lifecycle refactored to keep one long-lived CPAL input stream per worker instead of rebuilding per push-to-talk cycle
 - Start/Stop now toggles recording state and buffer handling without dropping the stream (stream drops only on shutdown/worker exit)
