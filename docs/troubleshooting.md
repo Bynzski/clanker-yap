@@ -194,6 +194,20 @@ Get-PnpDevice -Class AudioEndpoint
    # Log out and back in
    ```
 
+### Repeated Microphone Permission Prompts (Linux)
+
+**Symptoms:** Desktop/portal microphone permission prompts appear intermittently between push-to-talk cycles.
+
+**What changed in current builds:**
+- Recorder now keeps one long-lived CPAL input stream per recorder worker.
+- Push-to-talk no longer opens/closes the input stream each Start/Stop cycle.
+- Stream is dropped only on recorder shutdown.
+
+**If prompts still appear occasionally:**
+1. Verify you launch via the installed desktop entry/AppImage (not mixed launch paths).
+2. Ensure no duplicate app instances are running.
+3. Check portal/session-manager logs for policy prompts from outside Clanker Yap.
+
 ### Model Not Loading
 
 **Error:** "Model not found at: /path/to/model.bin"
