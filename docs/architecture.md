@@ -133,7 +133,7 @@ pub enum RecordingState {
 
 **Audio Module:**
 ```
-recorder.rs   - Records audio via cpal
+recorder.rs   - Records audio via cpal (single long-lived input stream per worker)
 device.rs     - Lists/selects audio devices
 resample.rs   - 48kHz → 16kHz via rubato
 eq.rs        - FFT-based frequency band extraction (EqState)
@@ -207,6 +207,12 @@ Release hotkey → recording-stopped event → overlay transitions to processing
 - Frontend uses JS-side exponential smoothing (attack=0.45, decay=0.3) for fluid bar animations
 
 ### Recording Pipeline
+
+**Recorder lifecycle note:**
+- The CPAL input stream is created once when the recorder worker starts.
+- Push-to-talk `Start`/`Stop` toggles capture via a shared recording flag and buffer reset/drain.
+- The stream is only dropped on recorder shutdown/worker exit.
+
 
 ```
 ┌────────────┐     ┌─────────────┐     ┌──────────────┐     ┌─────────────┐

@@ -5,7 +5,10 @@
 
 use crossbeam_channel::{Receiver, Sender};
 use parking_lot::Mutex;
-use std::sync::Arc;
+use std::sync::{
+    atomic::{AtomicBool, Ordering},
+    Arc,
+};
 use std::thread::{self, JoinHandle};
 
 use super::eq::EqState;
@@ -112,149 +115,143 @@ fn recorder_thread(
     let sample_rate = config.sample_rate().0;
     let channels = config.channels() as usize;
     let sample_format = config.sample_format();
-    // Store stream config separately so we can re-use it across commands
     let stream_config = config.into();
+
+    let buffer: Arc<Mutex<Vec<f32>>> = Arc::new(Mutex::new(Vec::new()));
+    let is_recording = Arc::new(AtomicBool::new(false));
+    let eq_state = Arc::new(Mutex::new(EqState::new(sample_rate)));
 
     let err_fn = |err| tracing::error!(error = ?err, "Audio stream error");
 
-    let mut stream: Option<cpal::Stream> = None;
-    let buffer: Arc<Mutex<Vec<f32>>> = Arc::new(Mutex::new(Vec::new()));
-    let buffer_clone = Arc::clone(&buffer);
+    let stream = {
+        let buffer_for_stream = Arc::clone(&buffer);
+        let is_recording_for_stream = Arc::clone(&is_recording);
+        let eq_state_for_stream = Arc::clone(&eq_state);
+        let eq_tx_for_stream = eq_tx.clone();
+
+        let stream_result = match sample_format {
+            cpal::SampleFormat::F32 => device.build_input_stream(
+                &stream_config,
+                move |data: &[f32], _: &cpal::InputCallbackInfo| {
+                    if !is_recording_for_stream.load(Ordering::Relaxed) {
+                        return;
+                    }
+
+                    let mut mono = if channels == 1 {
+                        data.to_vec()
+                    } else {
+                        let mut mono = Vec::with_capacity(data.len() / channels);
+                        for frame in 0..data.len() / channels {
+                            let mut sum = 0.0f32;
+                            for ch in 0..channels {
+                                sum += data[frame * channels + ch];
+                            }
+                            mono.push(sum / channels as f32);
+                        }
+                        mono
+                    };
+
+                    buffer_for_stream.lock().extend_from_slice(&mono);
+                    if let Some(bands) = eq_state_for_stream.lock().feed(&mono) {
+                        let _ = eq_tx_for_stream.try_send(bands);
+                    }
+
+                    mono.clear();
+                },
+                err_fn,
+                None,
+            ),
+            cpal::SampleFormat::I16 => device.build_input_stream(
+                &stream_config,
+                move |data: &[i16], _: &cpal::InputCallbackInfo| {
+                    if !is_recording_for_stream.load(Ordering::Relaxed) {
+                        return;
+                    }
+
+                    let mono = if channels == 1 {
+                        data.iter().map(|&s| s as f32 / i16::MAX as f32).collect()
+                    } else {
+                        let mut mono = Vec::with_capacity(data.len() / channels);
+                        for frame in 0..data.len() / channels {
+                            let mut sum = 0.0f32;
+                            for ch in 0..channels {
+                                sum += data[frame * channels + ch] as f32 / i16::MAX as f32;
+                            }
+                            mono.push(sum / channels as f32);
+                        }
+                        mono
+                    };
+
+                    buffer_for_stream.lock().extend_from_slice(&mono);
+                    if let Some(bands) = eq_state_for_stream.lock().feed(&mono) {
+                        let _ = eq_tx_for_stream.try_send(bands);
+                    }
+                },
+                err_fn,
+                None,
+            ),
+            _ => {
+                // U16 or other formats - treat as i16
+                device.build_input_stream(
+                    &stream_config,
+                    move |data: &[i16], _: &cpal::InputCallbackInfo| {
+                        if !is_recording_for_stream.load(Ordering::Relaxed) {
+                            return;
+                        }
+
+                        let mono = if channels == 1 {
+                            data.iter().map(|&s| s as f32 / i16::MAX as f32).collect()
+                        } else {
+                            let mut mono = Vec::with_capacity(data.len() / channels);
+                            for frame in 0..data.len() / channels {
+                                let mut sum = 0.0f32;
+                                for ch in 0..channels {
+                                    sum += data[frame * channels + ch] as f32 / i16::MAX as f32;
+                                }
+                                mono.push(sum / channels as f32);
+                            }
+                            mono
+                        };
+
+                        buffer_for_stream.lock().extend_from_slice(&mono);
+                        if let Some(bands) = eq_state_for_stream.lock().feed(&mono) {
+                            let _ = eq_tx_for_stream.try_send(bands);
+                        }
+                    },
+                    err_fn,
+                    None,
+                )
+            }
+        };
+
+        match stream_result {
+            Ok(s) => s,
+            Err(e) => {
+                let _ = result_tx.send(Err(AppError::Audio(format!("Stream build failed: {}", e))));
+                return;
+            }
+        }
+    };
+
+    if let Err(e) = stream.play() {
+        let _ = result_tx.send(Err(AppError::Audio(format!("Stream play failed: {}", e))));
+        return;
+    }
+    tracing::debug!("recorder_thread: audio stream created and playing");
 
     loop {
         match cmd_rx.recv() {
             Ok(RecorderCmd::Start) => {
                 tracing::debug!("recorder_thread: received Start command");
-                // Clear and restart the buffer
-                buffer_clone.lock().clear();
-
-                let buffer_for_stream = Arc::clone(&buffer);
-                let channels_for_dw = channels;
-                let eq_tx_clone = eq_tx.clone();
-                let sample_rate_for_eq = sample_rate;
-
-                // Create EQ state for this recording session
-                let mut eq_state = EqState::new(sample_rate_for_eq);
-
-                let stream_result = match sample_format {
-                    cpal::SampleFormat::F32 => {
-                        device.build_input_stream(
-                            &stream_config,
-                            move |data: &[f32], _: &cpal::InputCallbackInfo| {
-                                let mut buf = buffer_for_stream.lock();
-                                // Downmix to mono and append
-                                if channels_for_dw == 1 {
-                                    buf.extend_from_slice(data);
-                                    // Feed mono samples to EQ
-                                    if let Some(bands) = eq_state.feed(data) {
-                                        let _ = eq_tx_clone.try_send(bands);
-                                    }
-                                } else {
-                                    let mut mono = Vec::with_capacity(data.len() / channels_for_dw);
-                                    for frame in 0..data.len() / channels_for_dw {
-                                        let mut sum = 0.0f32;
-                                        for ch in 0..channels_for_dw {
-                                            sum += data[frame * channels_for_dw + ch];
-                                        }
-                                        let mono_sample = sum / channels_for_dw as f32;
-                                        buf.push(mono_sample);
-                                        mono.push(mono_sample);
-                                    }
-                                    // Feed mono samples to EQ
-                                    if let Some(bands) = eq_state.feed(&mono) {
-                                        let _ = eq_tx_clone.try_send(bands);
-                                    }
-                                }
-                            },
-                            err_fn,
-                            None,
-                        )
-                    }
-                    cpal::SampleFormat::I16 => device.build_input_stream(
-                        &stream_config,
-                        move |data: &[i16], _: &cpal::InputCallbackInfo| {
-                            let mut buf = buffer_for_stream.lock();
-                            if channels_for_dw == 1 {
-                                buf.extend(data.iter().map(|&s| s as f32 / i16::MAX as f32));
-                                // Convert to mono f32 for EQ
-                                let mono: Vec<f32> =
-                                    data.iter().map(|&s| s as f32 / i16::MAX as f32).collect();
-                                if let Some(bands) = eq_state.feed(&mono) {
-                                    let _ = eq_tx_clone.try_send(bands);
-                                }
-                            } else {
-                                let mut mono = Vec::with_capacity(data.len() / channels_for_dw);
-                                for frame in 0..data.len() / channels_for_dw {
-                                    let mut sum = 0.0f32;
-                                    for ch in 0..channels_for_dw {
-                                        sum += data[frame * channels_for_dw + ch] as f32
-                                            / i16::MAX as f32;
-                                    }
-                                    let mono_sample = sum / channels_for_dw as f32;
-                                    buf.push(mono_sample);
-                                    mono.push(mono_sample);
-                                }
-                                // Feed mono samples to EQ
-                                if let Some(bands) = eq_state.feed(&mono) {
-                                    let _ = eq_tx_clone.try_send(bands);
-                                }
-                            }
-                        },
-                        err_fn,
-                        None,
-                    ),
-                    _ => {
-                        // U16 or other formats - treat as i16
-                        device.build_input_stream(
-                            &stream_config,
-                            move |data: &[i16], _: &cpal::InputCallbackInfo| {
-                                let mut buf = buffer_for_stream.lock();
-                                if channels_for_dw == 1 {
-                                    buf.extend(data.iter().map(|&s| s as f32 / i16::MAX as f32));
-                                    let mono: Vec<f32> =
-                                        data.iter().map(|&s| s as f32 / i16::MAX as f32).collect();
-                                    if let Some(bands) = eq_state.feed(&mono) {
-                                        let _ = eq_tx_clone.try_send(bands);
-                                    }
-                                } else {
-                                    let mut mono = Vec::with_capacity(data.len() / channels_for_dw);
-                                    for frame in 0..data.len() / channels_for_dw {
-                                        let mut sum = 0.0f32;
-                                        for ch in 0..channels_for_dw {
-                                            sum += data[frame * channels_for_dw + ch] as f32
-                                                / i16::MAX as f32;
-                                        }
-                                        let mono_sample = sum / channels_for_dw as f32;
-                                        buf.push(mono_sample);
-                                        mono.push(mono_sample);
-                                    }
-                                    if let Some(bands) = eq_state.feed(&mono) {
-                                        let _ = eq_tx_clone.try_send(bands);
-                                    }
-                                }
-                            },
-                            err_fn,
-                            None,
-                        )
-                    }
-                };
-
-                if let Ok(s) = stream_result {
-                    stream = Some(s);
-                    if let Err(e) = stream.as_ref().unwrap().play() {
-                        tracing::warn!(error = ?e, "recorder_thread: Failed to start audio stream");
-                    } else {
-                        tracing::debug!("recorder_thread: audio stream playing");
-                    }
-                }
+                buffer.lock().clear();
+                *eq_state.lock() = EqState::new(sample_rate);
+                is_recording.store(true, Ordering::Relaxed);
             }
             Ok(RecorderCmd::Stop) => {
                 tracing::debug!("recorder_thread: received Stop command");
-                // Drop stream, collect buffer, resample
-                if let Some(s) = stream.take() {
-                    drop(s);
-                }
-                let samples = buffer_clone.lock().split_off(0);
+                is_recording.store(false, Ordering::Relaxed);
+
+                let samples = buffer.lock().split_off(0);
                 tracing::debug!("recorder_thread: collected {} raw samples", samples.len());
 
                 let finalized = finalize_recording(&samples, sample_rate);
@@ -267,9 +264,7 @@ fn recorder_thread(
                 let _ = result_tx.send(Ok(finalized));
             }
             Ok(RecorderCmd::Shutdown) | Err(_) => {
-                if let Some(s) = stream.take() {
-                    drop(s);
-                }
+                is_recording.store(false, Ordering::Relaxed);
                 break;
             }
         }

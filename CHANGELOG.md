@@ -14,6 +14,9 @@ The format is inspired by [Keep a Changelog](https://keepachangelog.com/en/1.1.0
 ### Changed
 - README and release-facing docs now reflect the Linux AppImage 0.1.0 target
 - Documentation now explicitly notes Wayland and X11 smoke-test coverage
+- Recorder lifecycle refactored to keep one long-lived CPAL input stream per worker instead of rebuilding per push-to-talk cycle
+- Start/Stop now toggles recording state and buffer handling without dropping the stream (stream drops only on shutdown/worker exit)
+- Architecture and troubleshooting docs updated to describe the new recorder stream lifecycle and Linux permission-prompt behavior
 
 ## [0.1.0] - 2026-04-27
 
