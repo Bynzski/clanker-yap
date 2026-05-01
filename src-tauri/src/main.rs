@@ -58,6 +58,7 @@ fn main() {
             voice_transcribe_lib::presentation::commands::window_cmds::minimize_window,
             voice_transcribe_lib::presentation::commands::window_cmds::close_window,
             voice_transcribe_lib::presentation::commands::window_cmds::start_window_drag,
+            voice_transcribe_lib::presentation::commands::window_cmds::get_app_version,
         ])
         .setup(move |app| {
             tracing::info!("Tauri app setup starting");

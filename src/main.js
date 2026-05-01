@@ -19,6 +19,7 @@ let selectedMicName = null;
 let activePanel = null;
 let resizeObserver = null;
 let resizeFrame = null;
+let appVersion = "v--";
 
 const COMPACT_WINDOW_HEIGHT = 196;
 
@@ -28,15 +29,18 @@ async function init() {
     setupUiEventListeners();
 
     try {
-        const [settingsData, historyData, statusData] = await Promise.all([
+        const [settingsData, historyData, statusData, versionData] = await Promise.all([
             invoke("get_settings"),
             invoke("get_transcription_history"),
             invoke("get_status"),
+            invoke("get_app_version"),
         ]);
 
         settings = settingsData;
         transcriptions = historyData.transcriptions || [];
+        appVersion = versionData || "v--";
 
+        updateVersionUI(appVersion);
         updateSettingsUI(settings);
         updateHistoryUI(transcriptions);
 
@@ -97,6 +101,11 @@ async function setupEventListeners() {
 function setupUiEventListeners() {
     document.addEventListener("click", handleDocumentClick);
     document.addEventListener("keydown", handleDocumentKeydown);
+}
+
+function updateVersionUI(version) {
+    const versionEl = document.getElementById("app-version");
+    if (versionEl) versionEl.textContent = version || "v--";
 }
 
 function onRecordingStarted() {

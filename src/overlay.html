@@ -81,11 +81,22 @@
             transition: height 60ms linear;
         }
 
-        /* Recording state: green-cyan gradient bars */
+        /* Recording state: green-cyan gradient bars with subtle motion */
         .pill[data-state="recording"] .eq-bar {
             background: linear-gradient(180deg, #3fb950 0%, #58a6ff 100%);
             box-shadow: 0 0 6px rgba(63, 185, 80, 0.4);
+            animation:
+                recording-bar-wave 1.05s ease-in-out infinite,
+                recording-bar-breathe 1.6s ease-in-out infinite;
         }
+
+        .pill[data-state="recording"] .eq-bar:nth-child(1) { animation-delay: 0ms; }
+        .pill[data-state="recording"] .eq-bar:nth-child(2) { animation-delay: 70ms; }
+        .pill[data-state="recording"] .eq-bar:nth-child(3) { animation-delay: 140ms; }
+        .pill[data-state="recording"] .eq-bar:nth-child(4) { animation-delay: 210ms; }
+        .pill[data-state="recording"] .eq-bar:nth-child(5) { animation-delay: 280ms; }
+        .pill[data-state="recording"] .eq-bar:nth-child(6) { animation-delay: 350ms; }
+        .pill[data-state="recording"] .eq-bar:nth-child(7) { animation-delay: 420ms; }
 
         /* Processing state: amber pulsing */
         .pill[data-state="processing"] .eq-bar {
@@ -126,6 +137,10 @@
             flex-shrink: 0;
         }
 
+        .pill[data-state="recording"] .record-dot {
+            animation: live-dot-pulse 1s ease-in-out infinite;
+        }
+
         .pill[data-state="processing"] .record-dot {
             background: #c28d3d;
             box-shadow: 0 0 8px rgba(194, 141, 61, 0.5);
@@ -140,6 +155,35 @@
         @keyframes pulse-dot {
             0%, 100% { opacity: 0.5; }
             50% { opacity: 1; }
+        }
+
+        @keyframes live-dot-pulse {
+            0%, 100% {
+                opacity: 0.85;
+                transform: scale(0.95);
+                box-shadow: 0 0 6px rgba(63, 185, 80, 0.45);
+            }
+            50% {
+                opacity: 1;
+                transform: scale(1.12);
+                box-shadow: 0 0 12px rgba(63, 185, 80, 0.8);
+            }
+        }
+
+        @keyframes recording-bar-breathe {
+            0%, 100% {
+                opacity: 0.92;
+                filter: saturate(1);
+            }
+            50% {
+                opacity: 1;
+                filter: saturate(1.18);
+            }
+        }
+
+        @keyframes recording-bar-wave {
+            0%, 100% { transform: scaleY(0.84); }
+            50% { transform: scaleY(1.08); }
         }
     </style>
 </head>
