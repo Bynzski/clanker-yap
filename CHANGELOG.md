@@ -6,6 +6,25 @@ The format is inspired by [Keep a Changelog](https://keepachangelog.com/en/1.1.0
 
 ## [Unreleased]
 
+## [0.1.2] - 2026-04-30
+
+### Changed
+- Paste controller now reuses a single persistent `Enigo` instance instead of creating a new one on every transcription, eliminating repeated KDE/Wayland "Remote Control — Control input devices" permission prompts
+- `Enigo` is lazily initialised on first paste and held for the app lifetime — at most one permission prompt per session
+- `auto_paste` setting now defaults to `true` on all platforms including Wayland
+- If keyboard simulation init fails (e.g. permission denied), the controller gracefully falls back to clipboard-only without retrying on every subsequent paste
+- Toggling `auto_paste` back on resets the controller, giving it a fresh initialisation attempt
+- Paste controller is cleaned up on app shutdown
+
+### Added
+- `auto_paste` toggle in the Paste settings UI (allows users to opt out of automatic keyboard simulation)
+- `PasteController` struct in `AppState` for persistent input-device session management
+- `PasteOutcome` enum (`CopiedOnly` / `CopiedAndPasted`) to communicate paste status through the pipeline
+- `clipboard_only` field in the `transcription-complete` event so the frontend can show appropriate status
+
+### Fixed
+- Repeated KDE/Wayland "Remote Control" permission prompts no longer appear after each transcription
+
 ## [0.1.1] - 2026-04-29
 
 ### Added

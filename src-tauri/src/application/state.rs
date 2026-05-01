@@ -22,6 +22,11 @@ pub struct AppState {
     /// Audio recorder handle (spawned on first use).
     pub recorder: Arc<Mutex<Option<crate::infrastructure::audio::RecorderHandle>>>,
 
+    /// Persistent paste controller — owns a single Enigo instance for the
+    /// app lifetime so that repeated pastes don't trigger new input-device
+    /// sessions (which causes KDE/Wayland "Remote Control" prompts).
+    pub paste_controller: Arc<Mutex<crate::infrastructure::paste::PasteController>>,
+
     /// Current recording/processing state.
     pub recording: Arc<Mutex<RecordingState>>,
 
@@ -53,6 +58,9 @@ impl AppState {
             settings: Arc::new(Mutex::new(settings)),
             whisper: Arc::new(Mutex::new(None)),
             recorder: Arc::new(Mutex::new(None)),
+            paste_controller: Arc::new(Mutex::new(
+                crate::infrastructure::paste::PasteController::new(),
+            )),
             recording: Arc::new(Mutex::new(RecordingState::Idle)),
             last_error: Arc::new(Mutex::new(None)),
             level_cancel: Arc::new(AtomicBool::new(false)),

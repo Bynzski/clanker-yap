@@ -12,6 +12,7 @@ use tauri::{AppHandle, Emitter};
 
 use crate::application::state::{AppState, RecordingState};
 use crate::application::use_cases::paste;
+use crate::application::use_cases::paste::PasteOutcome;
 use crate::application::use_cases::transcribe as transcribe_usecase;
 use crate::application::use_cases::transcription as transcription_usecase;
 use crate::domain::transcription::Transcription;
@@ -356,14 +357,28 @@ fn pipeline(app: &AppHandle, state: &AppState, duration_ms: i64) {
 
     tracing::info!(text_len = text.len(), text_preview = %&text[..text.len().min(50)], "Transcribed");
 
-    // 3. Paste (log error but continue — text stays in clipboard for manual paste)
+    // 3. Paste (clipboard copy always; keyboard paste via persistent controller)
     hide_overlay_before_paste(app);
-    tracing::info!(text_len = text.len(), "Attempting clipboard paste");
-    if let Err(e) = paste::execute(app, &text, state) {
-        tracing::warn!(error = ?e, "Paste injection failed — text available in clipboard");
-    } else {
-        tracing::info!("Paste injection succeeded");
-    }
+    tracing::info!(text_len = text.len(), "Attempting clipboard copy + paste");
+    let paste_outcome = match paste::execute(app, &text, state) {
+        Ok(outcome) => {
+            match &outcome {
+                PasteOutcome::CopiedOnly => {
+                    tracing::info!("Text copied to clipboard (auto-paste disabled or unavailable)");
+                }
+                PasteOutcome::CopiedAndPasted => {
+                    tracing::info!("Text copied and auto-pasted");
+                }
+            }
+            outcome
+        }
+        Err(e) => {
+            tracing::warn!(error = ?e, "Clipboard/paste failed");
+            // Continue pipeline — the transcription text is still available in memory
+            // and will be saved to history.
+            PasteOutcome::CopiedOnly
+        }
+    };
 
     // 4. Save transcription
     let transcription = match Transcription::new(text.clone(), duration_ms) {
@@ -395,11 +410,13 @@ fn pipeline(app: &AppHandle, state: &AppState, duration_ms: i64) {
     // ── Phase 3 wiring: emit event BEFORE hide overlay ─────────────────────
     // hide_overlay() uses run_on_main_thread() so it's safe to call from this
     // blocking thread (GAP-2)
+    let clipboard_only = paste_outcome == PasteOutcome::CopiedOnly;
     let _ = app.emit(
         "transcription-complete",
         serde_json::json!({
             "text": text,
-            "duration_ms": duration_ms
+            "duration_ms": duration_ms,
+            "clipboard_only": clipboard_only
         }),
     );
     hide_overlay(app);
@@ -473,4 +490,9 @@ pub fn shutdown(app: &AppHandle, state: &AppState) {
     let mut whisper_slot = state.whisper.lock();
     *whisper_slot = None;
     tracing::info!("Whisper engine dropped");
+
+    // Drop the persistent paste controller (releases Enigo / input session)
+    let mut paste_slot = state.paste_controller.lock();
+    paste_slot.reset();
+    tracing::info!("Paste controller reset");
 }

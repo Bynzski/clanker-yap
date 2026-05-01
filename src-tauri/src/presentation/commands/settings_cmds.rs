@@ -21,6 +21,7 @@ pub fn get_settings(state: State<'_, AppState>) -> Result<SettingsResponse> {
         model_path: settings.model_path.clone(),
         model_name: settings.model_name.clone(),
         paste_mode: settings.paste_mode.clone(),
+        auto_paste: settings.auto_paste,
         audio_input: settings.audio_input.clone(),
         total_words: settings.total_words,
     })
@@ -91,6 +92,16 @@ pub fn update_settings(
 
     if let Some(paste_mode) = request.paste_mode {
         settings.paste_mode = paste_mode;
+    }
+
+    if let Some(auto_paste) = request.auto_paste {
+        settings.auto_paste = auto_paste;
+
+        // When re-enabling auto-paste, reset the controller so a previously
+        // failed Enigo init gets another chance.
+        if auto_paste {
+            state.paste_controller.lock().reset();
+        }
     }
 
     if let Some(audio_input) = request.audio_input {

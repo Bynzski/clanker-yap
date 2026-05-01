@@ -272,6 +272,7 @@ interface Settings {
   model_path: string;
   model_name: string;
   paste_mode: string;
+  auto_paste: boolean;
   audio_input: AudioInput | null;
   schema_version: number;
 }

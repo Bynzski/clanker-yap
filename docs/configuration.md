@@ -16,7 +16,8 @@ Settings are stored in a SQLite database at:
 | `hotkey` | String | `CmdOrCtrl+Shift+V` | Global push-to-talk hotkey |
 | `model_path` | String | `~/.local/share/voice-transcribe/ggml-base.en.bin` | Path to Whisper model |
 | `model_name` | String | `ggml-base.en.bin` | Display name for the model |
-| `paste_mode` | String | `auto` | Clipboard paste behavior |
+| `paste_mode` | String | `auto` | Clipboard paste behavior (`auto`, `standard`, `terminal`) |
+| `auto_paste` | Boolean | `true` | Whether to automatically simulate Ctrl+V after copying to clipboard |
 | `audio_input` | JSON | `null` | Selected microphone device |
 | `schema_version` | Integer | `1` | Settings format version |
 
@@ -122,6 +123,21 @@ List available devices via the microphone dropdown in the UI, or check:
 ## Paste Mode Configuration
 
 Controls how transcribed text is inserted into applications.
+
+### Auto-paste
+
+The `auto_paste` setting controls whether Clanker Yap automatically simulates
+a Ctrl+V (or Cmd+V) keystroke after copying the transcription to the clipboard.
+
+- **Enabled (default):** Text is copied to the clipboard and automatically pasted.
+- **Disabled:** Text is only copied to the clipboard — press Ctrl+V manually.
+
+On KDE/Wayland, the keyboard simulation uses a persistent input controller that
+is initialised once per session. You may see a single "Remote Control" permission
+prompt the first time auto-paste runs. Subsequent pastes reuse the same session
+without additional prompts.
+
+### Paste Shortcut Style
 
 ### Modes
 

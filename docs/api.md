@@ -59,6 +59,7 @@ pub struct Settings {
     pub model_path: String,
     pub model_name: String,
     pub paste_mode: String,
+    pub auto_paste: bool,
     pub audio_input: Option<AudioInputSelection>,
     pub schema_version: u32,
 }
@@ -149,7 +150,7 @@ pub struct Orchestrator {
     state: AppState,
     whisper_engine: WhisperEngine,
     audio_recorder: AudioRecorder,
-    paste_service: PasteService,
+    paste_controller: PasteController,
 }
 ```
 
@@ -218,27 +219,36 @@ recorder.start();
 let samples = recorder.stop()?;
 ```
 
-### PasteService
+### PasteController
 
-Keyboard simulation for paste injection.
+Persistent keyboard simulation for paste injection. The `Enigo` instance is
+lazily initialised on first use and reused for the app lifetime to avoid
+repeated OS-level permission prompts on KDE/Wayland.
 
 ```rust
-use crate::infrastructure::paste::PasteService;
+use crate::infrastructure::paste::PasteController;
 
-pub struct PasteService;
+pub struct PasteController { /* internal Enigo instance */ }
 
-impl PasteService {
+impl PasteController {
     pub fn new() -> Self
-    pub fn paste_text(&self, text: &str, mode: &str) -> Result<()>
-    pub fn copy_to_clipboard(&self, text: &str) -> Result<()>
+    pub fn reset(&mut self)  // Drops Enigo, clears failure flag
 }
+
+// Standalone inject function (takes controller by &mut)
+pub fn inject(
+    app: &AppHandle,
+    text: &str,
+    paste_mode: &str,
+    auto_paste: bool,
+    controller: &mut PasteController,
+) -> Result<PasteOutcome>
 ```
 
 **Usage:**
 ```rust
-let service = PasteService::new();
-service.copy_to_clipboard("Hello")?;
-service.paste_text("Hello", "auto")?;
+let mut controller = PasteController::new();
+paste::inject(app, "Hello", "auto", true, &mut controller)?;
 ```
 
 ### Database
@@ -377,7 +387,7 @@ pub fn run() {
 | `application::orchestrator` | `Orchestrator` struct |
 | `infrastructure::whisper` | `WhisperEngine` struct |
 | `infrastructure::audio` | `AudioRecorder` struct |
-| `infrastructure::paste` | `PasteService` struct |
+| `infrastructure::paste` | `PasteController` struct, `inject()` function |
 | `infrastructure::persistence` | `Database` struct |
 
 ## Error Propagation
