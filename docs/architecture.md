@@ -114,15 +114,20 @@ src-tauri/src/
 ```rust
 // AppState - mutable application state
 pub struct AppState {
-    pub settings: Settings,
-    pub recording: RecordingState,
-    pub db: Database,
+    pub db: Arc<Db>,
+    pub settings: Arc<Mutex<Settings>>,
+    pub whisper: Arc<Mutex<Option<Arc<WhisperEngine>>>>,
+    pub recorder: Arc<Mutex<Option<RecorderHandle>>>,
+    pub paste_controller: Arc<Mutex<PasteController>>,
+    pub recording: Arc<Mutex<RecordingState>>,
+    pub last_error: Arc<Mutex<Option<String>>>,
+    pub level_cancel: Arc<AtomicBool>,
 }
 
 // RecordingState - current recording status
 pub enum RecordingState {
     Idle,
-    Recording { start_time: Instant },
+    Recording { started_at: Instant },
     Processing,
 }
 ```
@@ -155,7 +160,9 @@ downloader.rs - HTTP download for model files
 
 **Paste Module:**
 ```
-service.rs    - enigo-based keyboard simulation
+service.rs    - Persistent PasteController (lazy Enigo init, reused per session)
+               - Clipboard copy + optional keyboard simulation
+               - Standard (Ctrl+V) and terminal (Ctrl+Shift+V / Shift+Insert) modes
 ```
 
 **Persistence Module:**

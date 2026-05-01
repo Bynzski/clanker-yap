@@ -290,6 +290,27 @@ Get-PnpDevice -Class AudioEndpoint
    - The text is also copied to clipboard
    - Manually Ctrl+V to paste
 
+### KDE/Wayland "Remote Control" Permission Prompt
+
+**Symptoms:** KDE shows a "Remote Control — An application is asking for special privileges: Control input devices" dialog.
+
+**What is happening:**
+Clanker Yap simulates Ctrl+V to automatically paste transcribed text. On KDE Plasma with Wayland, this requires input-device access through the desktop portal. The prompt is legitimate and expected.
+
+**Expected behavior (v0.1.2+):**
+- You may see **one** prompt when auto-paste first initialises (typically on your first transcription after launching the app)
+- Subsequent transcriptions reuse the same input session — no repeated prompts
+
+**If prompts keep appearing:**
+1. Make sure you're running v0.1.2 or later (earlier versions created a new input session on every paste)
+2. Restart the app to reset the input controller
+3. If the issue persists, you can disable auto-paste in Settings → Paste → toggle "Auto-paste" off, and paste manually with Ctrl+V
+
+**Granting permanent permission (KDE):**
+You can configure KDE to remember the permission:
+1. When the prompt appears, click "Remember"
+2. Or go to System Settings → Applications → Clanker Yap → grant "Control input devices"
+
 ### Audio Quality Issues
 
 **Symptoms:** Transcriptions are inaccurate or have noise.

@@ -32,6 +32,16 @@ pub struct Settings {
     #[serde(default = "default_paste_mode")]
     pub paste_mode: String,
 
+    /// Whether to automatically simulate keyboard input (Ctrl+V) after copying
+    /// to the clipboard. When `false`, the transcription is only copied to the
+    /// clipboard and the user must paste manually.
+    ///
+    /// Defaults to `true`. The persistent `PasteController` reuses a single
+    /// Enigo instance so that KDE/Wayland only prompts for "Remote Control"
+    /// permission once (on first use), not on every paste.
+    #[serde(default = "default_auto_paste")]
+    pub auto_paste: bool,
+
     /// Audio input selection. None = use system default.
     #[serde(default)]
     pub audio_input: Option<AudioInputSelection>,
@@ -53,6 +63,10 @@ fn default_paste_mode() -> String {
     "auto".to_string()
 }
 
+fn default_auto_paste() -> bool {
+    true
+}
+
 /// Returns the default model path using the dirs crate.
 fn default_model_path() -> PathBuf {
     dirs::data_dir()
@@ -70,6 +84,7 @@ impl Default for Settings {
             model_path: default_model_path().to_string_lossy().to_string(),
             model_name: crate::domain::DEFAULT_MODEL_FILE.to_string(),
             paste_mode: default_paste_mode(),
+            auto_paste: default_auto_paste(),
             audio_input: None,
             total_words: 0,
             schema_version: current_schema(),

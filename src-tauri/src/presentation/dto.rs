@@ -9,6 +9,7 @@ pub struct SettingsResponse {
     pub model_path: String,
     pub model_name: String,
     pub paste_mode: String,
+    pub auto_paste: bool,
     pub audio_input: Option<crate::domain::settings::AudioInputSelection>,
     pub total_words: u64,
 }
@@ -30,6 +31,7 @@ pub struct UpdateSettingsRequest {
     pub model_path: Option<String>,
     pub model_name: Option<String>,
     pub paste_mode: Option<String>,
+    pub auto_paste: Option<bool>,
     pub audio_input: Option<crate::domain::settings::AudioInputSelection>,
 }
 

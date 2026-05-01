@@ -247,6 +247,14 @@
               <strong class="setting-primary" id="paste-mode-value">Auto</strong>
               <p class="setting-tertiary" id="paste-mode-description">Uses standard paste behavior by default.</p>
               <div class="setting-edit" id="edit-paste">
+                <label class="toggle-row" for="auto-paste-toggle">
+                  <span class="toggle-label">Auto-paste (simulate keyboard input)</span>
+                  <input type="checkbox" id="auto-paste-toggle" onchange="toggleAutoPaste(this.checked)">
+                  <span class="toggle-switch"></span>
+                </label>
+                <p class="setting-tertiary toggle-hint" id="auto-paste-hint">When off, text is only copied to clipboard. Press Ctrl+V to paste manually.</p>
+                <div class="setting-divider"></div>
+                <p class="setting-secondary" style="margin-bottom: 8px;">Paste shortcut style</p>
                 <div class="segmented-control" id="paste-mode-input" role="radiogroup" aria-label="Paste mode">
                   <button class="segment-button" type="button" data-value="auto" onclick="selectPasteMode('auto')">Auto</button>
                   <button class="segment-button" type="button" data-value="standard" onclick="selectPasteMode('standard')">Standard</button>

@@ -116,10 +116,10 @@ function updateWordCountDisplay(totalWords) {
 }
 
 function onTranscriptionComplete(payload) {
-    showStatus("idle", "Ready", "Awaiting shortcut");
     clearError();
 
     if (!payload.text) {
+        showStatus("idle", "Ready", "Awaiting shortcut");
         return;
     }
 
@@ -139,6 +139,12 @@ function onTranscriptionComplete(payload) {
     transcriptions.unshift(item);
     transcriptions = transcriptions.slice(0, 10);
     updateHistoryUI(transcriptions);
+
+    if (payload.clipboard_only) {
+        showStatus("idle", "Copied to clipboard", "Auto-paste unavailable — press Ctrl+V to paste");
+    } else {
+        showStatus("idle", "Ready", "Awaiting shortcut");
+    }
 }
 
 function onTranscriptionError(payload) {
@@ -262,9 +268,18 @@ function updateSettingsUI(nextSettings) {
     if (modelPathEl) modelPathEl.textContent = nextSettings.model_path || "--";
     if (modelInput) modelInput.value = nextSettings.model_path || "";
     if (pasteModeValueEl) pasteModeValueEl.textContent = formatPasteMode(nextSettings.paste_mode);
-    if (pasteModeDescriptionEl) pasteModeDescriptionEl.textContent = getPasteModeDescription(nextSettings.paste_mode);
+    if (pasteModeDescriptionEl) pasteModeDescriptionEl.textContent = getPasteModeDescription(nextSettings.paste_mode, nextSettings.auto_paste);
     selectedPasteMode = nextSettings.paste_mode || "auto";
     updatePasteModeSelector(selectedPasteMode);
+
+    const autoPasteToggle = document.getElementById("auto-paste-toggle");
+    if (autoPasteToggle) autoPasteToggle.checked = !!nextSettings.auto_paste;
+    const autoPasteHint = document.getElementById("auto-paste-hint");
+    if (autoPasteHint) {
+        autoPasteHint.textContent = nextSettings.auto_paste
+            ? "Text will be automatically pasted after transcription."
+            : "When off, text is only copied to clipboard. Press Ctrl+V to paste manually.";
+    }
 
     const audioInput = nextSettings.audio_input;
     selectedMicName = getMicrophoneSelectionValue(audioInput);
@@ -742,7 +757,10 @@ function formatPasteMode(value) {
     }
 }
 
-function getPasteModeDescription(value) {
+function getPasteModeDescription(value, autoPaste) {
+    if (!autoPaste) {
+        return "Copied to clipboard. Press Ctrl+V to paste.";
+    }
     switch (value) {
         case "terminal":
             return "Uses Linux terminal paste shortcuts such as Ctrl + Shift + V.";
@@ -750,6 +768,9 @@ function getPasteModeDescription(value) {
             return "Uses the normal application paste shortcut.";
         case "auto":
         default:
+            return "Uses standard paste behavior by default.";
+    }
+}
             return "Uses standard paste behavior by default.";
     }
 }
@@ -901,6 +922,36 @@ function submitPasteMode() {
 
     hideEdit("paste");
     updatePasteMode(selectedPasteMode);
+}
+
+async function toggleAutoPaste(enabled) {
+    try {
+        const result = await invoke("update_settings", {
+            request: { auto_paste: enabled },
+        });
+
+        if (result.success === false) {
+            showError("settings", result.message || "Auto-paste update failed.");
+            const toggle = document.getElementById("auto-paste-toggle");
+            if (toggle) toggle.checked = !enabled;
+            return;
+        }
+
+        settings.auto_paste = enabled;
+        const description = document.getElementById("paste-mode-description");
+        if (description) description.textContent = getPasteModeDescription(settings.paste_mode, enabled);
+        const hint = document.getElementById("auto-paste-hint");
+        if (hint) {
+            hint.textContent = enabled
+                ? "Text will be automatically pasted after transcription."
+                : "When off, text is only copied to clipboard. Press Ctrl+V to paste manually.";
+        }
+        clearError();
+    } catch (err) {
+        showError("settings", `Failed to update auto-paste: ${err}`);
+        const toggle = document.getElementById("auto-paste-toggle");
+        if (toggle) toggle.checked = !enabled;
+    }
 }
 
 async function loadAudioDevices() {
@@ -1149,6 +1200,7 @@ window.hideEdit = hideEdit;
 window.submitHotkey = submitHotkey;
 window.submitModelPath = submitModelPath;
 window.submitPasteMode = submitPasteMode;
+window.toggleAutoPaste = toggleAutoPaste;
 window.submitMicrophone = submitMicrophone;
 window.confirmModelDownload = confirmModelDownload;
 window.beginHotkeyCapture = beginHotkeyCapture;

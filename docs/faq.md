@@ -90,11 +90,17 @@ Yes. Go to **Mic** in the toolbar to select a specific audio device, or use the 
 2. Start the app
 3. Hold the hotkey and speak
 4. Release when done
-5. Text is automatically pasted
+5. Text is automatically pasted (Ctrl+V simulated via persistent input controller)
 
 ### Can I use it in a terminal?
 
 Yes. Set the paste mode to "Terminal" in settings for better terminal compatibility.
+
+### How do I disable automatic paste?
+
+Go to **Settings → Paste → Edit** and toggle **Auto-paste** off. The transcription will still be copied to your clipboard — press Ctrl+V to paste manually.
+
+On KDE/Wayland, disabling auto-paste avoids the "Remote Control" permission prompt entirely.
 
 ### How do I review past transcriptions?
 
@@ -125,11 +131,13 @@ Yes. Click **Model** in the toolbar and enter a custom path.
 
 ### What's the difference between paste modes?
 
+**Auto-paste** (a separate toggle in Paste settings) controls whether Clanker Yap automatically simulates Ctrl+V after copying text to the clipboard.
+
 | Mode | How it works |
 |------|-------------|
-| Auto | Standard paste, fallback to keyboard |
-| Standard | Direct clipboard paste |
-| Terminal | Type character-by-character |
+| Auto | Standard paste shortcut (Ctrl+V / Cmd+V) |
+| Standard | Normal application paste |
+| Terminal | Ctrl+Shift+V or Shift+Insert (for terminals/Vim) |
 
 ### How do I reset settings?
 

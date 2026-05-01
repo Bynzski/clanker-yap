@@ -1,7 +1,7 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
   "productName": "Clanker Yap",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "identifier": "dev.jay.voice-transcribe",
   "build": {
     "frontendDist": "../src",
@@ -11,6 +11,7 @@
   },
   "app": {
     "withGlobalTauri": true,
+    "enableGTKAppId": true,
     "windows": [{
       "label": "main",
       "title": "Clanker Yap",
@@ -26,7 +27,7 @@
   },
   "bundle": {
     "active": true,
-    "targets": "appimage",
+    "targets": ["appimage", "deb"],
     "macOS": {
       "entitlements": "./entitlements.plist"
     },
