@@ -6,6 +6,12 @@ The format is inspired by [Keep a Changelog](https://keepachangelog.com/en/1.1.0
 
 ## [Unreleased]
 
+### Changed
+- Closing the main app window now exits the entire Tauri process (including backend services), instead of only closing the visible window while hidden windows could keep the process alive
+
+### Fixed
+- Frontend rendering/runtime break caused by stray duplicate JavaScript lines after `getPasteModeDescription(...)` in `src/main.js`
+
 ## [0.1.2] - 2026-04-30
 
 ### Changed

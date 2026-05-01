@@ -771,9 +771,6 @@ function getPasteModeDescription(value, autoPaste) {
             return "Uses standard paste behavior by default.";
     }
 }
-            return "Uses standard paste behavior by default.";
-    }
-}
 
 function getCommandLabel() {
     return navigator.platform.toLowerCase().includes("mac") ? "Cmd" : "Ctrl";

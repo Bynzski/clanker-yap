@@ -1,6 +1,6 @@
 //! Window-related Tauri commands.
 
-use tauri::{LogicalSize, Size, WebviewWindow};
+use tauri::{AppHandle, LogicalSize, Size, WebviewWindow};
 
 const WINDOW_WIDTH: f64 = 480.0;
 const MIN_WINDOW_HEIGHT: f64 = 196.0;
@@ -24,8 +24,9 @@ pub fn minimize_window(window: WebviewWindow) -> Result<(), String> {
 }
 
 #[tauri::command]
-pub fn close_window(window: WebviewWindow) -> Result<(), String> {
-    window.close().map_err(|err| err.to_string())
+pub fn close_window(app: AppHandle) -> Result<(), String> {
+    app.exit(0);
+    Ok(())
 }
 
 #[tauri::command]
