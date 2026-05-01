@@ -33,3 +33,8 @@ pub fn close_window(app: AppHandle) -> Result<(), String> {
 pub fn start_window_drag(window: WebviewWindow) -> Result<(), String> {
     window.start_dragging().map_err(|err| err.to_string())
 }
+
+#[tauri::command]
+pub fn get_app_version(app: AppHandle) -> String {
+    format!("v{}", app.package_info().version)
+}
