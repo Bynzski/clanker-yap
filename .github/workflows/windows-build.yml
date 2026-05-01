@@ -1,0 +1,37 @@
+name: Windows CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  validate:
+    name: windows-latest
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: x86_64-pc-windows-msvc
+
+      - name: Cache cargo
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+
+      - name: Rust fmt check
+        run: cd src-tauri && cargo fmt --check
+
+      - name: Clippy
+        run: cd src-tauri && cargo clippy -- -D warnings
+
+      - name: Tests
+        run: cd src-tauri && cargo test
