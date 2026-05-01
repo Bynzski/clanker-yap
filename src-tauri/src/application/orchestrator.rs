@@ -449,6 +449,7 @@ pub fn shutdown(app: &AppHandle, state: &AppState) {
     // Hide overlay first so it doesn't linger during exit (Linux only)
     #[cfg(target_os = "linux")]
     hide_overlay(app);
+    let _ = app;
 
     // Stop active recording if any
     let is_recording = matches!(&*state.recording.lock(), RecordingState::Recording { .. });

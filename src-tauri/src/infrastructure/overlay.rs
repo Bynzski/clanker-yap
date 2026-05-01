@@ -84,6 +84,7 @@ pub fn create_overlay(app: &AppHandle) -> Result<(), String> {
         .visible(false)
         .resizable(false);
 
+    #[allow(unused_variables)]
     let window = builder.build().map_err(|e| e.to_string())?;
 
     // Prevent the overlay from stealing focus when it maps (appears on screen).
