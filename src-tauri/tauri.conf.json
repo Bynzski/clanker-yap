@@ -27,7 +27,7 @@
   },
   "bundle": {
     "active": true,
-    "targets": ["appimage", "deb"],
+    "targets": ["appimage", "deb", "nsis", "msi"],
     "macOS": {
       "entitlements": "./entitlements.plist"
     },

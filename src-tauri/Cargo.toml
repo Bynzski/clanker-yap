@@ -11,8 +11,9 @@ crate-type = ["staticlib", "cdylib", "rlib"]
 
 [features]
 default = []
-# Enable Wayland overlay positioning via GTK Layer Shell.
+# Linux-only: Wayland overlay positioning via GTK Layer Shell.
 # Requires the `gtk-layer-shell` system library (e.g., `libgtk-layer-shell` on Arch, `libgtk-layer-shell-dev` on Debian/Ubuntu).
+# Has no effect on Windows or macOS — the overlay is not built there regardless.
 # Without this feature, the overlay falls back to X11 `set_always_on_top` on Wayland as well.
 wayland-overlay = ["gtk-layer-shell"]
 
@@ -44,8 +45,17 @@ crossbeam-channel = "0.5"
 realfft = "3"
 
 [target.'cfg(target_os = "linux")'.dependencies]
-# GTK Layer Shell for Wayland overlay positioning. Only used when the `wayland-overlay` feature is enabled.
+# GTK Layer Shell for Wayland overlay positioning. Only compiled on Linux.
+# Only active when the `wayland-overlay` feature is also enabled (see [features]).
 gtk-layer-shell = { version = "0.8", features = ["v0_6"], optional = true }
 # GTK3 crate — needed for low-level window property access (e.g. focus_on_map) on the overlay.
 # Already a transitive dependency via Tauri; listing it here lets us import gtk::prelude traits.
 gtk = { version = "0.18", features = ["v3_24"] }
+
+[target.'cfg(target_os = "windows")'.dependencies]
+# No Windows-specific dependencies are required.
+# The overlay is not built on Windows (see phase 1), and all other dependencies
+# (whisper-rs, cpal, enigo, rusqlite, etc.) compile cross-platform without extra crates.
+
+[target.'cfg(target_os = "darwin")'.dependencies]
+# No macOS-specific dependencies are required — same rationale as Windows above.

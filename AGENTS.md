@@ -107,7 +107,8 @@ This is the cardinal rule. Violate it and the codebase rots.
 # Development (hot reload frontend, compile Rust in debug)
 npm run tauri:dev
 
-# Production build (AppImage)
+# Production build — Linux host builds Linux targets (appimage, deb)
+# Windows targets (nsis, msi) are built on a Windows machine (see below)
 npm run tauri:build
 ```
 
@@ -234,6 +235,48 @@ Tests live alongside the code they test in `#[cfg(test)] mod tests` blocks:
 | `thiserror` 1 | Error derives |
 | `tracing` / `tracing-subscriber` | Structured logging |
 | `gtk-layer-shell` 0.8 | GTK Layer Shell for Wayland overlay positioning (Linux only) |
+
+---
+
+## Windows Build Workflow
+
+The codebase supports Windows (`nsis`, `msi`) and Linux (`appimage`, `deb`) bundle targets. Artifact generation is **Linux-host only for Linux targets, Windows-host only for Windows targets**.
+
+### Operating Model
+
+| Machine | Role |
+|---|---|
+| **Linux (this machine)** | Development, prep, Rust validation (`cargo test`, `cargo clippy`, `cargo fmt`). Builds `appimage` and `deb` locally. |
+| **GitHub Actions** | Validates the Rust backend compiles on `windows-latest` (no artifact produced). |
+| **Windows machine** | Builds `nsis` and `msi` installers from a tagged commit. |
+
+**Windows installers are not built on this Linux machine.**
+
+### CI — Windows Validation (GitHub Actions)
+
+A workflow on `windows-latest` runs the standard Rust validation gate:
+```bash
+cd src-tauri
+cargo test
+cargo clippy -- -D warnings
+cargo fmt --check
+```
+This confirms the backend compiles cleanly on Windows but does not produce an installer artifact.
+
+### Building Windows Installers (Windows host)
+
+From a Windows machine, from repo root:
+
+```powershell
+npm ci
+npx tauri build
+```
+
+Expected outputs:
+- `src-tauri/target/release/bundle/nsis/` — NSIS installer
+- `src-tauri/target/release/bundle/msi/` — MSI installer
+
+Smoke-test the installer before publishing.
 
 ---
 

@@ -40,8 +40,8 @@
 //! if the window has already been dropped.
 
 use std::sync::atomic::{AtomicBool, Ordering};
-use std::time::Duration;
-use tauri::{AppHandle, Manager, WebviewUrl, WebviewWindowBuilder};
+use std::time::{Duration, Instant};
+use tauri::{AppHandle, Emitter, Manager, WebviewUrl, WebviewWindowBuilder};
 
 /// Tracks whether a hide operation is in progress, preventing concurrent hides.
 static HIDING_IN_PROGRESS: AtomicBool = AtomicBool::new(false);
@@ -293,4 +293,48 @@ fn cancel_pending_hide() {
         *pending = None;
         tracing::debug!("Pending overlay hide cancelled");
     }
+}
+
+// ── Level Emission Task ─────────────────────────────────────────────────────
+
+/// Spawns a background thread that reads EQ band values from the recorder's
+/// `eq_rx` channel and emits `mic-level` events to the frontend at ~30fps.
+/// Runs until `level_cancel` is set to `true` (by `on_release`).
+pub fn spawn_level_emission_task(
+    app: AppHandle,
+    eq_rx: crossbeam_channel::Receiver<Vec<f32>>,
+    level_cancel: std::sync::Arc<std::sync::atomic::AtomicBool>,
+) {
+    std::thread::spawn(move || {
+        let target_interval = Duration::from_millis(33); // ~30fps
+
+        loop {
+            if level_cancel.load(std::sync::atomic::Ordering::Relaxed) {
+                tracing::debug!("Level emission task: cancelled");
+                break;
+            }
+
+            match eq_rx.recv_timeout(target_interval) {
+                Ok(bands) => {
+                    let now = Instant::now();
+                    let _ = app.emit("mic-level", &bands);
+                    let elapsed = now.elapsed();
+
+                    if elapsed < target_interval {
+                        let remaining = target_interval - elapsed;
+                        std::thread::sleep(remaining);
+                    }
+                }
+                Err(crossbeam_channel::RecvTimeoutError::Timeout) => {
+                    continue;
+                }
+                Err(crossbeam_channel::RecvTimeoutError::Disconnected) => {
+                    tracing::debug!("Level emission task: channel disconnected");
+                    break;
+                }
+            }
+        }
+
+        tracing::info!("Level emission task: stopped");
+    });
 }

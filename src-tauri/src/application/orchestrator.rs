@@ -7,7 +7,6 @@
 //! Events are emitted to the frontend via `app.emit(...)`.
 
 use cpal::traits::{DeviceTrait, HostTrait};
-use std::time::{Duration, Instant};
 use tauri::{AppHandle, Emitter};
 
 use crate::application::state::{AppState, RecordingState};
@@ -16,6 +15,9 @@ use crate::application::use_cases::paste::PasteOutcome;
 use crate::application::use_cases::transcribe as transcribe_usecase;
 use crate::application::use_cases::transcription as transcription_usecase;
 use crate::domain::transcription::Transcription;
+#[cfg(target_os = "linux")]
+use crate::infrastructure::overlay::spawn_level_emission_task;
+#[cfg(target_os = "linux")]
 use crate::infrastructure::overlay::{hide_overlay, hide_overlay_before_paste, show_overlay};
 
 // ── Helpers ─────────────────────────────────────────────────────────────────
@@ -34,53 +36,6 @@ fn clear_last_error(state: &AppState) {
 }
 
 // ── Level Emission Task ─────────────────────────────────────────────────────
-
-/// Spawns a background thread that reads EQ band values from the recorder's
-/// `eq_rx` channel and emits `mic-level` events to the frontend at ~30fps.
-/// Runs until `level_cancel` is set to `true` (by `on_release`).
-fn spawn_level_emission_task(
-    app: AppHandle,
-    eq_rx: crossbeam_channel::Receiver<Vec<f32>>,
-    level_cancel: std::sync::Arc<std::sync::atomic::AtomicBool>,
-) {
-    std::thread::spawn(move || {
-        let target_interval = Duration::from_millis(33); // ~30fps
-
-        loop {
-            // Check cancellation flag first — exit promptly without blocking
-            if level_cancel.load(std::sync::atomic::Ordering::Relaxed) {
-                tracing::debug!("Level emission task: cancelled");
-                break;
-            }
-
-            // Try to receive with a short timeout so we can re-check the cancel flag
-            match eq_rx.recv_timeout(target_interval) {
-                Ok(bands) => {
-                    let now = Instant::now();
-                    let _ = app.emit("mic-level", &bands);
-                    let elapsed = now.elapsed();
-
-                    // Throttle to ~30fps: sleep for remaining interval
-                    if elapsed < target_interval {
-                        let remaining = target_interval - elapsed;
-                        std::thread::sleep(remaining);
-                    }
-                }
-                Err(crossbeam_channel::RecvTimeoutError::Timeout) => {
-                    // No data yet — loop back and check cancel flag
-                    continue;
-                }
-                Err(crossbeam_channel::RecvTimeoutError::Disconnected) => {
-                    // Channel closed (recorder stopped) — exit
-                    tracing::debug!("Level emission task: channel disconnected");
-                    break;
-                }
-            }
-        }
-
-        tracing::info!("Level emission task: stopped");
-    });
-}
 
 // ── Hotkey Press ────────────────────────────────────────────────────────────
 
@@ -200,6 +155,9 @@ pub fn on_press(app: &AppHandle, state: &AppState) {
     // Emit event BEFORE show so overlay JS renders the correct state while still hidden
     tracing::debug!("on_press: emitting recording-started and showing overlay");
     let _ = app.emit("recording-started", ());
+
+    // Overlay and level emission — Linux only
+    #[cfg(target_os = "linux")]
     show_overlay(app);
 
     // Reset cancel flag and spawn level emission task
@@ -207,14 +165,18 @@ pub fn on_press(app: &AppHandle, state: &AppState) {
     state
         .level_cancel
         .store(false, std::sync::atomic::Ordering::Relaxed);
-    if let Some(rec) = state.recorder.lock().as_ref() {
-        tracing::debug!("on_press: recorder found, spawning level task");
-        let eq_rx = rec.eq_rx.clone();
-        let cancel = state.level_cancel.clone();
-        let app_clone = app.clone();
-        spawn_level_emission_task(app_clone, eq_rx, cancel);
-    } else {
-        tracing::warn!("on_press: no recorder available for level emission");
+
+    #[cfg(target_os = "linux")]
+    {
+        if let Some(rec) = state.recorder.lock().as_ref() {
+            tracing::debug!("on_press: recorder found, spawning level task");
+            let eq_rx = rec.eq_rx.clone();
+            let cancel = state.level_cancel.clone();
+            let app_clone = app.clone();
+            spawn_level_emission_task(app_clone, eq_rx, cancel);
+        } else {
+            tracing::warn!("on_press: no recorder available for level emission");
+        }
     }
 }
 
@@ -251,7 +213,8 @@ pub fn on_release(app: &AppHandle, state: &AppState) {
         serde_json::json!({ "duration_ms": duration_ms }),
     );
 
-    // Signal level emission task to stop
+    // Signal level emission task to stop (Linux only)
+    #[cfg(target_os = "linux")]
     state
         .level_cancel
         .store(true, std::sync::atomic::Ordering::Relaxed);
@@ -292,6 +255,7 @@ fn pipeline(app: &AppHandle, state: &AppState, duration_ms: i64) {
                         "error": error_message
                     }),
                 );
+                #[cfg(target_os = "linux")]
                 hide_overlay(app);
                 return;
             }
@@ -305,6 +269,7 @@ fn pipeline(app: &AppHandle, state: &AppState, duration_ms: i64) {
                         "error": error_message
                     }),
                 );
+                #[cfg(target_os = "linux")]
                 hide_overlay(app);
                 return;
             }
@@ -319,6 +284,7 @@ fn pipeline(app: &AppHandle, state: &AppState, duration_ms: i64) {
             "transcription-complete",
             serde_json::json!({ "text": "", "duration_ms": duration_ms }),
         );
+        #[cfg(target_os = "linux")]
         hide_overlay(app);
         return;
     }
@@ -338,6 +304,7 @@ fn pipeline(app: &AppHandle, state: &AppState, duration_ms: i64) {
                     "error": error_message
                 }),
             );
+            #[cfg(target_os = "linux")]
             hide_overlay(app);
             return;
         }
@@ -351,6 +318,7 @@ fn pipeline(app: &AppHandle, state: &AppState, duration_ms: i64) {
             "transcription-complete",
             serde_json::json!({ "text": "", "duration_ms": duration_ms }),
         );
+        #[cfg(target_os = "linux")]
         hide_overlay(app);
         return;
     }
@@ -358,6 +326,7 @@ fn pipeline(app: &AppHandle, state: &AppState, duration_ms: i64) {
     tracing::info!(text_len = text.len(), text_preview = %&text[..text.len().min(50)], "Transcribed");
 
     // 3. Paste (clipboard copy always; keyboard paste via persistent controller)
+    #[cfg(target_os = "linux")]
     hide_overlay_before_paste(app);
     tracing::info!(text_len = text.len(), "Attempting clipboard copy + paste");
     let paste_outcome = match paste::execute(app, &text, state) {
@@ -395,6 +364,7 @@ fn pipeline(app: &AppHandle, state: &AppState, duration_ms: i64) {
                     "duration_ms": duration_ms
                 }),
             );
+            #[cfg(target_os = "linux")]
             hide_overlay(app);
             return;
         }
@@ -419,6 +389,9 @@ fn pipeline(app: &AppHandle, state: &AppState, duration_ms: i64) {
             "clipboard_only": clipboard_only
         }),
     );
+
+    // Hide overlay (Linux only)
+    #[cfg(target_os = "linux")]
     hide_overlay(app);
 }
 
@@ -473,7 +446,8 @@ pub fn update_hotkey(app: &AppHandle, state: &AppState, hotkey_str: &str) -> boo
 pub fn shutdown(app: &AppHandle, state: &AppState) {
     tracing::info!("Orchestrator shutdown");
 
-    // Hide overlay first so it doesn't linger during exit
+    // Hide overlay first so it doesn't linger during exit (Linux only)
+    #[cfg(target_os = "linux")]
     hide_overlay(app);
 
     // Stop active recording if any
