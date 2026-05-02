@@ -1,18 +1,21 @@
 # Build & Release Guide
 
-This guide covers the current **0.1.0 Linux AppImage** release target for Clanker Yap.
+This guide covers building and releasing Clanker Yap for **Linux** and **Windows**.
 
-## Release target
+## Release targets
 
-Clanker Yap currently ships as a:
+Clanker Yap ships as:
 
-- **Linux x86_64 AppImage**
+| Platform | Artifact | Built on |
+|---|---|---|
+| **Linux x86_64** | AppImage, `.deb` | Linux host |
+| **Windows x64** | NSIS installer, MSI | Windows host |
 
 Current status:
-- **Wayland:** smoke tested
-- **X11:** smoke tested
+- **Linux (Wayland):** smoke tested
+- **Linux (X11):** smoke tested
+- **Windows:** smoke tested
 - **macOS:** not yet supported as a release target
-- **Windows:** not yet supported as a release target
 
 ## Prerequisites
 
@@ -50,7 +53,7 @@ sudo dnf install gcc-c++ cmake webkit2gtk4.1-devel libappindicator-gtk3-devel li
 npm run tauri:dev
 ```
 
-### Production AppImage
+### Production build (Linux)
 
 ```sh
 npm run tauri:build
@@ -58,19 +61,38 @@ npm run tauri:build
 
 > `tauri:build` already includes `NO_STRIP=1`, which is required on Arch/CachyOS for AppImage builds.
 
+### Production build (Windows)
+
+From a Windows machine, from repo root:
+
+```powershell
+npm ci
+npx tauri build
+```
+
+> Windows installers are built on a Windows machine only. The Linux machine does not produce Windows artifacts.
+
 ## Output
 
 Successful release builds produce:
 
+**Linux:**
 ```text
-src-tauri/target/release/bundle/appimage/Clanker Yap_0.1.0_amd64.AppImage
+src-tauri/target/release/bundle/appimage/Clanker Yap_X.Y.Z_amd64.AppImage
+src-tauri/target/release/bundle/deb/Clanker Yap_X.Y.Z_amd64.deb
+```
+
+**Windows:**
+```text
+src-tauri/target/release/bundle/nsis/Clanker Yap_X.Y.Z_x64-setup.exe
+src-tauri/target/release/bundle/msi/Clanker Yap_X.Y.Z_x64_en-US.msi
 ```
 
 ## Run the AppImage
 
 ```sh
-chmod +x "src-tauri/target/release/bundle/appimage/Clanker Yap_0.1.0_amd64.AppImage"
-./src-tauri/target/release/bundle/appimage/Clanker\ Yap_0.1.0_amd64.AppImage
+chmod +x "src-tauri/target/release/bundle/appimage/Clanker Yap_X.Y.Z_amd64.AppImage"
+./src-tauri/target/release/bundle/appimage/Clanker\ Yap_X.Y.Z_amd64.AppImage
 ```
 
 ## Release verification
@@ -92,6 +114,7 @@ Before publishing, verify:
 
 - Wayland
 - X11
+- Windows
 
 ### User flows
 
@@ -107,13 +130,22 @@ Before publishing, verify:
 
 ## Release artifacts
 
-For a 0.1.0 release, publish:
+For each release, publish:
 
-- `Clanker Yap_0.1.0_amd64.AppImage`
+**Linux:**
+- `.AppImage` file
+- `.deb` file (optional)
 - SHA256 checksum
 - release notes
-- a short note that Linux AppImage is the only supported release target for 0.1.0
-- a short note that Wayland and X11 were smoke tested
+
+**Windows (built on Windows host):**
+- NSIS `.exe` installer
+- MSI `.msi` installer (optional)
+- SHA256 checksum
+
+Include notes on:
+- Which platforms were smoke tested
+- Known limitations
 
 ## Versioning
 
@@ -125,6 +157,7 @@ For each release, update the version in:
 
 ## Notes
 
-- Clanker Yap is currently optimized for Linux desktop usage.
-- Packaging is AppImage-first for 0.1.0.
-- Future macOS and Windows support can be added later, but they are not part of this release.
+- Clanker Yap supports both Linux and Windows desktop usage.
+- Linux packaging is AppImage + deb.
+- Windows packaging is NSIS + MSI.
+- macOS support may be added later.

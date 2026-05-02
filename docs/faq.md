@@ -70,6 +70,8 @@ A floating pill appears at the bottom of the screen while recording:
 - **Processing state** — amber pulsing bars when transcription is running
 
 The overlay is always-on-top, click-through, and transparent.
+On Linux it uses GTK Layer Shell on Wayland and X11 fallback. On Windows it uses
+standard Tauri window APIs positioned at the bottom-center of the primary monitor.
 
 ### How much memory does it use?
 
@@ -244,9 +246,11 @@ Create a feature request issue with:
 
 ### Will there be a macOS/Windows build?
 
-Possibly later, but not for the 0.1.0 release target.
+**Windows builds are available as of v0.1.3.** The app ships NSIS and MSI installers for Windows x64, built on a Windows host.
 
-Right now Clanker Yap ships as a Linux AppImage and has been smoke tested on both Wayland and X11. macOS and Windows builds are not yet part of the supported release workflow.
+macOS support may be added later but is not yet part of the release workflow.
+
+Right now Clanker Yap ships as a Linux AppImage and Windows installer, and has been smoke tested on Wayland, X11, and Windows.
 
 ### Can I use a larger model?
 

@@ -1,19 +1,21 @@
 # Release Checklist
 
-Use this checklist when preparing a Linux AppImage release of Clanker Yap.
+Use this checklist when preparing a release of Clanker Yap.
 
-## 0.1.0 target
+## Release targets
 
-Release target:
-- Linux x86_64 AppImage
+| Platform | Artifact | Built on |
+|---|---|---|
+| Linux x86_64 | AppImage, `.deb` | Linux host |
+| Windows x64 | NSIS, MSI | Windows host |
 
 Tested:
 - Wayland
 - X11
+- Windows
 
-Not included in 0.1.0:
+Not included:
 - macOS release
-- Windows release
 
 ## Pre-release
 
@@ -36,14 +38,26 @@ cargo fmt --check
 - [ ] Clippy passes with zero warnings
 - [ ] Formatting check passes
 
-## Build
+## Build (Linux)
 
 ```sh
 npm run tauri:build
 ```
 
 - [ ] AppImage builds successfully
-- [ ] Artifact exists at `src-tauri/target/release/bundle/appimage/`
+- [ ] `.deb` builds successfully
+- [ ] Artifacts exist at `src-tauri/target/release/bundle/`
+
+## Build (Windows — on Windows host)
+
+```powershell
+npm ci
+npx tauri build
+```
+
+- [ ] NSIS installer builds successfully
+- [ ] MSI builds successfully
+- [ ] Artifacts exist at `src-tauri/target/release/bundle/nsis/` and `.../msi/`
 
 ## Smoke tests
 
@@ -71,17 +85,28 @@ npm run tauri:build
 ### Session coverage
 - [ ] Wayland smoke test completed
 - [ ] X11 smoke test completed
+- [ ] Windows smoke test completed
 
 ## Release artifacts
 
+**Linux:**
 - [ ] Upload `.AppImage`
+- [ ] Upload `.deb` (optional)
 - [ ] Generate SHA256 checksum
+
+**Windows:**
+- [ ] Upload NSIS `.exe` installer
+- [ ] Upload MSI `.msi` installer (optional)
+- [ ] Generate SHA256 checksum
+
+**Common:**
 - [ ] Include release notes
-- [ ] Note Linux AppImage-only support for 0.1.0
-- [ ] Note smoke testing on Wayland and X11
+- [ ] Note which platforms were smoke tested
+- [ ] Note known limitations
 
 ## Post-release
 
 - [ ] Tag release in git
 - [ ] Publish GitHub release
+- [ ] Upload Windows artifacts from Windows host
 - [ ] Verify download/install instructions once from the published release page
