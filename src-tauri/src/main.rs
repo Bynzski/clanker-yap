@@ -5,7 +5,7 @@ use std::sync::Arc;
 use tauri::{Emitter, Manager};
 use tauri_plugin_global_shortcut::{GlobalShortcutExt, Shortcut, ShortcutState};
 
-#[cfg(target_os = "linux")]
+#[cfg(any(target_os = "linux", target_os = "windows"))]
 use voice_transcribe_lib::infrastructure::overlay;
 use voice_transcribe_lib::{
     application::{orchestrator, AppState},
@@ -103,15 +103,14 @@ fn main() {
 
             // Create the overlay window, hidden by default.
             // This is the recording pill that appears during dictation.
-            // Linux-only: GTK Layer Shell and focus_on_map require a GTK context
-            // that only exists on Linux. No overlay on Windows/macOS.
-            #[cfg(target_os = "linux")]
+            // Supported on Linux and Windows. macOS is excluded for now.
+            #[cfg(any(target_os = "linux", target_os = "windows"))]
             {
                 if let Err(e) = overlay::create_overlay(app.handle()) {
                     tracing::error!(error = %e, "Failed to create overlay window — continuing without it");
                 }
             }
-            #[cfg(not(target_os = "linux"))]
+            #[cfg(not(any(target_os = "linux", target_os = "windows")))]
             {
                 tracing::debug!("Overlay window creation skipped — not supported on this platform");
             }

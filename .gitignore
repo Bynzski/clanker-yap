@@ -25,6 +25,9 @@ dist-ssr
 node_modules/
 package-lock.json
 
+# Claude Code local config
+.claude/
+
 # Local app/runtime artifacts that should not be pushed
 src-tauri/target/
 src-tauri/gen/

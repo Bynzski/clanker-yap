@@ -6,8 +6,13 @@ The format is inspired by [Keep a Changelog](https://keepachangelog.com/en/1.1.0
 
 ## [Unreleased]
 
+### Added
+- Recording overlay pill now supported on Windows — shown during push-to-talk recording and processing, positioned at bottom-center of the primary monitor
+- Terminal paste mode (`Ctrl+Shift+V` / `Shift+Insert`) now active on Windows, matching existing Linux behavior
+
 ### Changed
 - Closing the main app window now exits the entire Tauri process (including backend services), instead of only closing the visible window while hidden windows could keep the process alive
+- Tauri dependency versions pinned exactly (`2.10.1`) rather than with caret ranges
 
 ### Fixed
 - Frontend rendering/runtime break caused by stray duplicate JavaScript lines after `getPasteModeDescription(...)` in `src/main.js`
