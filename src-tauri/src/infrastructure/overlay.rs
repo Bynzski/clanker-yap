@@ -146,7 +146,8 @@ pub fn create_overlay(app: &AppHandle) -> Result<(), String> {
             let win_h = (OVERLAY_HEIGHT * scale) as u32;
             let x = ((size.width.saturating_sub(win_w)) / 2) as i32;
             let y = (size.height.saturating_sub(win_h + 60)) as i32;
-            let _ = window.set_position(tauri::Position::Physical(tauri::PhysicalPosition { x, y }));
+            let _ =
+                window.set_position(tauri::Position::Physical(tauri::PhysicalPosition { x, y }));
             tracing::debug!("Overlay positioned at bottom-center ({x}, {y}) on Windows");
         }
     }
