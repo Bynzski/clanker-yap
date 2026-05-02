@@ -6,16 +6,27 @@ The format is inspired by [Keep a Changelog](https://keepachangelog.com/en/1.1.0
 
 ## [Unreleased]
 
+## [0.1.3] - 2026-05-01
+
 ### Added
+- Windows CI workflow (`windows-latest`) validates Rust backend on every push/PR to `main`
+- `nsis` and `msi` bundle targets in Tauri config for Windows installer builds
 - Recording overlay pill now supported on Windows — shown during push-to-talk recording and processing, positioned at bottom-center of the primary monitor
 - Terminal paste mode (`Ctrl+Shift+V` / `Shift+Insert`) now active on Windows, matching existing Linux behavior
+- App icons tracked in git (required by `tauri-build` for Windows Resource file generation)
 
 ### Changed
+- Overlay creation and all overlay calls gated behind `#[cfg(target_os = "linux")]` so the app compiles cleanly on Windows without GTK
+- `spawn_level_emission_task` moved from orchestrator into overlay module (Linux-only code lives with Linux-only infrastructure)
+- Linux-only dependency comments clarified in `Cargo.toml` with explicit Windows and macOS sections
 - Closing the main app window now exits the entire Tauri process (including backend services), instead of only closing the visible window while hidden windows could keep the process alive
 - Tauri dependency versions pinned exactly (`2.10.1`) rather than with caret ranges
+- AGENTS.md updated with Windows Build Workflow section documenting the operating model
 
 ### Fixed
 - Frontend rendering/runtime break caused by stray duplicate JavaScript lines after `getPasteModeDescription(...)` in `src/main.js`
+- `dtolnay/rust-action` → `dtolnay/rust-toolchain` in CI workflow (incorrect action name)
+- Unused-variable clippy errors on Windows for `window` (overlay) and `app` (shutdown) suppressed
 
 ## [0.1.2] - 2026-04-30
 
