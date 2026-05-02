@@ -130,7 +130,10 @@ pub fn inject(
     };
 
     // Simulate keyboard paste
-    if cfg!(any(target_os = "linux", target_os = "windows")) && paste_mode == "terminal" && send_terminal_paste(enigo).is_ok() {
+    if cfg!(any(target_os = "linux", target_os = "windows"))
+        && paste_mode == "terminal"
+        && send_terminal_paste(enigo).is_ok()
+    {
         return Ok(PasteOutcome::CopiedAndPasted);
     }
 
