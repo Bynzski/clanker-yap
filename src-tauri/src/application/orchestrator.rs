@@ -15,9 +15,9 @@ use crate::application::use_cases::paste::PasteOutcome;
 use crate::application::use_cases::transcribe as transcribe_usecase;
 use crate::application::use_cases::transcription as transcription_usecase;
 use crate::domain::transcription::Transcription;
-#[cfg(target_os = "linux")]
+#[cfg(any(target_os = "linux", target_os = "windows"))]
 use crate::infrastructure::overlay::spawn_level_emission_task;
-#[cfg(target_os = "linux")]
+#[cfg(any(target_os = "linux", target_os = "windows"))]
 use crate::infrastructure::overlay::{hide_overlay, hide_overlay_before_paste, show_overlay};
 
 // ── Helpers ─────────────────────────────────────────────────────────────────
@@ -157,7 +157,7 @@ pub fn on_press(app: &AppHandle, state: &AppState) {
     let _ = app.emit("recording-started", ());
 
     // Overlay and level emission — Linux only
-    #[cfg(target_os = "linux")]
+    #[cfg(any(target_os = "linux", target_os = "windows"))]
     show_overlay(app);
 
     // Reset cancel flag and spawn level emission task
@@ -166,7 +166,7 @@ pub fn on_press(app: &AppHandle, state: &AppState) {
         .level_cancel
         .store(false, std::sync::atomic::Ordering::Relaxed);
 
-    #[cfg(target_os = "linux")]
+    #[cfg(any(target_os = "linux", target_os = "windows"))]
     {
         if let Some(rec) = state.recorder.lock().as_ref() {
             tracing::debug!("on_press: recorder found, spawning level task");
@@ -213,8 +213,8 @@ pub fn on_release(app: &AppHandle, state: &AppState) {
         serde_json::json!({ "duration_ms": duration_ms }),
     );
 
-    // Signal level emission task to stop (Linux only)
-    #[cfg(target_os = "linux")]
+    // Signal level emission task to stop
+    #[cfg(any(target_os = "linux", target_os = "windows"))]
     state
         .level_cancel
         .store(true, std::sync::atomic::Ordering::Relaxed);
@@ -255,7 +255,7 @@ fn pipeline(app: &AppHandle, state: &AppState, duration_ms: i64) {
                         "error": error_message
                     }),
                 );
-                #[cfg(target_os = "linux")]
+                #[cfg(any(target_os = "linux", target_os = "windows"))]
                 hide_overlay(app);
                 return;
             }
@@ -269,7 +269,7 @@ fn pipeline(app: &AppHandle, state: &AppState, duration_ms: i64) {
                         "error": error_message
                     }),
                 );
-                #[cfg(target_os = "linux")]
+                #[cfg(any(target_os = "linux", target_os = "windows"))]
                 hide_overlay(app);
                 return;
             }
@@ -284,7 +284,7 @@ fn pipeline(app: &AppHandle, state: &AppState, duration_ms: i64) {
             "transcription-complete",
             serde_json::json!({ "text": "", "duration_ms": duration_ms }),
         );
-        #[cfg(target_os = "linux")]
+        #[cfg(any(target_os = "linux", target_os = "windows"))]
         hide_overlay(app);
         return;
     }
@@ -304,7 +304,7 @@ fn pipeline(app: &AppHandle, state: &AppState, duration_ms: i64) {
                     "error": error_message
                 }),
             );
-            #[cfg(target_os = "linux")]
+            #[cfg(any(target_os = "linux", target_os = "windows"))]
             hide_overlay(app);
             return;
         }
@@ -318,7 +318,7 @@ fn pipeline(app: &AppHandle, state: &AppState, duration_ms: i64) {
             "transcription-complete",
             serde_json::json!({ "text": "", "duration_ms": duration_ms }),
         );
-        #[cfg(target_os = "linux")]
+        #[cfg(any(target_os = "linux", target_os = "windows"))]
         hide_overlay(app);
         return;
     }
@@ -326,7 +326,7 @@ fn pipeline(app: &AppHandle, state: &AppState, duration_ms: i64) {
     tracing::info!(text_len = text.len(), text_preview = %&text[..text.len().min(50)], "Transcribed");
 
     // 3. Paste (clipboard copy always; keyboard paste via persistent controller)
-    #[cfg(target_os = "linux")]
+    #[cfg(any(target_os = "linux", target_os = "windows"))]
     hide_overlay_before_paste(app);
     tracing::info!(text_len = text.len(), "Attempting clipboard copy + paste");
     let paste_outcome = match paste::execute(app, &text, state) {
@@ -364,7 +364,7 @@ fn pipeline(app: &AppHandle, state: &AppState, duration_ms: i64) {
                     "duration_ms": duration_ms
                 }),
             );
-            #[cfg(target_os = "linux")]
+            #[cfg(any(target_os = "linux", target_os = "windows"))]
             hide_overlay(app);
             return;
         }
@@ -391,7 +391,7 @@ fn pipeline(app: &AppHandle, state: &AppState, duration_ms: i64) {
     );
 
     // Hide overlay (Linux only)
-    #[cfg(target_os = "linux")]
+    #[cfg(any(target_os = "linux", target_os = "windows"))]
     hide_overlay(app);
 }
 
@@ -447,7 +447,7 @@ pub fn shutdown(app: &AppHandle, state: &AppState) {
     tracing::info!("Orchestrator shutdown");
 
     // Hide overlay first so it doesn't linger during exit (Linux only)
-    #[cfg(target_os = "linux")]
+    #[cfg(any(target_os = "linux", target_os = "windows"))]
     hide_overlay(app);
     let _ = app;
 

@@ -135,6 +135,22 @@ pub fn create_overlay(app: &AppHandle) -> Result<(), String> {
         }
     }
 
+    // On Windows, position the overlay at bottom-center of the primary monitor.
+    // GTK Layer Shell handles this on Wayland; X11 and Windows need an explicit call.
+    #[cfg(target_os = "windows")]
+    {
+        if let Ok(Some(monitor)) = window.primary_monitor() {
+            let size = monitor.size();
+            let scale = monitor.scale_factor();
+            let win_w = (OVERLAY_WIDTH * scale) as u32;
+            let win_h = (OVERLAY_HEIGHT * scale) as u32;
+            let x = ((size.width.saturating_sub(win_w)) / 2) as i32;
+            let y = (size.height.saturating_sub(win_h + 60)) as i32;
+            let _ = window.set_position(tauri::Position::Physical(tauri::PhysicalPosition { x, y }));
+            tracing::debug!("Overlay positioned at bottom-center ({x}, {y}) on Windows");
+        }
+    }
+
     // Click-through: We skip set_ignore_cursor_events here because tao-0.34.8's
     // event loop panics when calling it on a hidden GTK window (unwrap on
     // window.gdk_window()). Instead, we set it in show_overlay() where the
