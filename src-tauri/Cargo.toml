@@ -1,6 +1,6 @@
 [package]
 name = "voice-transcribe"
-version = "0.1.2"
+version = "0.1.3"
 description = "Local voice-to-text transcription app"
 authors = ["Clanker contributors"]
 edition = "2021"
