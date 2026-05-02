@@ -171,7 +171,7 @@ Main Tauri configuration file located at `src-tauri/tauri.conf.json`:
 ```json
 {
   "productName": "Clanker Yap",
-  "version": "0.1.0",
+  "version": "X.Y.Z",
   "identifier": "dev.jay.voice-transcribe",
   "app": {
     "windows": [{

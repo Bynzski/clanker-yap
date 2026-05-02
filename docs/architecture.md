@@ -148,8 +148,11 @@ eq.rs        - FFT-based frequency band extraction (EqState)
 ```
 overlay.rs     - Floating always-on-top recording indicator pill
                - Thread-safe show/hide via run_on_main_thread
-               - GTK Layer Shell support for Wayland compositors
-               - X11 fallback via set_always_on_top
+               - GTK Layer Shell support for Wayland compositors (Linux only)
+               - X11 fallback via set_always_on_top (Linux)
+               - Windows: positioned at bottom-center of primary monitor
+               - Linux overlay code gated behind #[cfg(target_os = "linux")]
+               - Windows overlay uses standard Tauri window APIs
 ```
 
 **Whisper Module:**

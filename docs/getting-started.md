@@ -1,22 +1,23 @@
 # Getting Started with Clanker Yap
 
-This guide covers the current supported path for Clanker Yap: **running on Linux**.
+This guide covers running Clanker Yap on **Linux** and **Windows**.
 
 ## Platform status
 
-Current release target:
+Current release targets:
 
-- **Linux x86_64 AppImage**
+- **Linux x86_64** — AppImage, `.deb`
+- **Windows x64** — NSIS, MSI
 
-Tested environments for the 0.1.0 release target:
+Tested environments:
 
-- **Wayland:** smoke tested
-- **X11:** smoke tested
+- **Linux (Wayland):** smoke tested
+- **Linux (X11):** smoke tested
+- **Windows:** smoke tested
 
 Not yet released:
 
 - macOS
-- Windows
 
 ## System requirements
 
@@ -94,14 +95,14 @@ npm run tauri:build
 Output:
 
 ```text
-src-tauri/target/release/bundle/appimage/Clanker Yap_0.1.0_amd64.AppImage
+src-tauri/target/release/bundle/appimage/Clanker Yap_X.Y.Z_amd64.AppImage
 ```
 
 Run it with:
 
 ```sh
-chmod +x "src-tauri/target/release/bundle/appimage/Clanker Yap_0.1.0_amd64.AppImage"
-./src-tauri/target/release/bundle/appimage/Clanker\ Yap_0.1.0_amd64.AppImage
+chmod +x "src-tauri/target/release/bundle/appimage/Clanker Yap_X.Y.Z_amd64.AppImage"
+./src-tauri/target/release/bundle/appimage/Clanker\ Yap_X.Y.Z_amd64.AppImage
 ```
 
 ## First launch

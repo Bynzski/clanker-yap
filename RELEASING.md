@@ -2,17 +2,18 @@
 
 This document defines the release process, versioning rules, changelog rules, and Git hook workflow for Clanker Yap.
 
-## Current release target
+## Current release targets
 
-As of `0.1.0`, Clanker Yap ships as:
+Clanker Yap ships as:
 
-- **Linux x86_64 AppImage**
+- **Linux x86_64 AppImage** (built on Linux)
+- **Windows x64 NSIS/MSI** (built on Windows host)
 
-Release confidence for `0.1.0`:
-- **Wayland:** smoke tested
-- **X11:** smoke tested
+Release confidence:
+- **Linux (Wayland):** smoke tested
+- **Linux (X11):** smoke tested
+- **Windows:** smoke tested
 - **macOS:** not yet a supported release target
-- **Windows:** not yet a supported release target
 
 ## Versioning rules
 
@@ -144,10 +145,12 @@ For now, note whether testing was done on:
 - Wayland
 - X11
 
-### 5. Compute checksum
+### 5. Compute checksums
 
 ```sh
 sha256sum src-tauri/target/release/bundle/appimage/*.AppImage
+sha256sum src-tauri/target/release/bundle/nsis/*.exe
+sha256sum src-tauri/target/release/bundle/msi/*.msi
 ```
 
 ### 6. Commit release prep
@@ -168,11 +171,11 @@ git push origin main --tags
 ### 8. Publish GitHub release
 
 Include:
-- AppImage artifact
-- SHA256 checksum
-- summary of notable features/fixes
-- Linux AppImage-only note for `0.1.0`
-- Wayland/X11 smoke-test note
+- Linux AppImage artifact + SHA256 checksum
+- Windows NSIS installer + SHA256 checksum (uploaded from Windows host)
+- Summary of notable features/fixes
+- Platform smoke-test notes
+- Known limitations
 
 ## Git hooks
 
@@ -229,14 +232,15 @@ Suggested structure for GitHub releases:
 ### Included in this release
 - ...
 
-### Artifact
+### Artifacts
 - Linux x86_64 AppImage
+- Windows x64 NSIS installer
 
 ### Validation
-- Wayland smoke tested
-- X11 smoke tested
+- Linux (Wayland) smoke tested
+- Linux (X11) smoke tested
+- Windows smoke tested
 
 ### Known limitations
 - macOS not yet supported
-- Windows not yet supported
 ```
