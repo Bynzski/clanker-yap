@@ -29,6 +29,7 @@ package-lock.json
 .claude/
 
 # Local app/runtime artifacts that should not be pushed
+artifacts/
 src-tauri/target/
 src-tauri/gen/
 voice-transcribe.db

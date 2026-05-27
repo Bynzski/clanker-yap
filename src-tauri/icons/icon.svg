@@ -1,0 +1,48 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+  <defs>
+    <linearGradient id="bg" x1="172" y1="108" x2="852" y2="916" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#161b22"/>
+      <stop offset="1" stop-color="#05070a"/>
+    </linearGradient>
+    <linearGradient id="accent" x1="188" y1="278" x2="846" y2="760" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#29d3e8"/>
+      <stop offset="1" stop-color="#ffc331"/>
+    </linearGradient>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="22" stdDeviation="24" flood-color="#000" flood-opacity="0.45"/>
+    </filter>
+    <filter id="glow" x="-40%" y="-40%" width="180%" height="180%">
+      <feGaussianBlur stdDeviation="12" result="blur"/>
+      <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+  </defs>
+
+  <rect x="88" y="88" width="848" height="848" rx="220" fill="url(#bg)"/>
+  <path d="M230 514C230 358 356 232 512 232c99 0 186 51 236 128" fill="none" stroke="#28c7df" stroke-width="58" stroke-linecap="round" opacity="0.96"/>
+  <path d="M794 496c0 156-126 282-282 282-98 0-184-50-235-125" fill="none" stroke="#ffc331" stroke-width="58" stroke-linecap="round" opacity="0.98"/>
+
+  <g filter="url(#shadow)">
+    <!-- sound waves, deliberately chunky so they survive 16-32px taskbar sizes -->
+    <path d="M698 397c51 38 84 98 84 166s-33 128-84 166" fill="none" stroke="#ffc331" stroke-width="36" stroke-linecap="round"/>
+    <path d="M742 331c72 52 119 136 119 232s-47 180-119 232" fill="none" stroke="#ffc331" stroke-width="28" stroke-linecap="round" opacity="0.86"/>
+
+    <!-- robot ears/headphones -->
+    <rect x="250" y="430" width="96" height="176" rx="48" fill="#f7f8f4" stroke="#05070a" stroke-width="28"/>
+    <rect x="678" y="430" width="96" height="176" rx="48" fill="#f7f8f4" stroke="#05070a" stroke-width="28"/>
+
+    <!-- robot head from Clanker brand language, simplified for small icons -->
+    <rect x="294" y="336" width="436" height="340" rx="152" fill="#f7f8f4" stroke="#05070a" stroke-width="34"/>
+    <rect x="370" y="432" width="284" height="132" rx="66" fill="#05070a"/>
+    <circle cx="451" cy="498" r="30" fill="#f7f8f4"/>
+    <circle cx="573" cy="498" r="30" fill="#f7f8f4"/>
+
+    <!-- antenna / mic capsule -->
+    <path d="M512 337V265" stroke="#f7f8f4" stroke-width="34" stroke-linecap="round"/>
+    <circle cx="512" cy="238" r="48" fill="#f7f8f4" stroke="#05070a" stroke-width="28"/>
+    <circle cx="512" cy="238" r="20" fill="#05070a"/>
+
+    <!-- speaking mouth + mic stem hint -->
+    <path d="M440 613c42 34 102 34 144 0" fill="none" stroke="#05070a" stroke-width="24" stroke-linecap="round"/>
+    <path d="M330 670c56 62 117 92 182 92s126-30 182-92" fill="none" stroke="#28c7df" stroke-width="36" stroke-linecap="round" filter="url(#glow)"/>
+  </g>
+</svg>
