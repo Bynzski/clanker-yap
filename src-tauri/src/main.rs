@@ -7,6 +7,8 @@ use tauri_plugin_global_shortcut::{GlobalShortcutExt, Shortcut, ShortcutState};
 
 #[cfg(any(target_os = "linux", target_os = "windows"))]
 use voice_transcribe_lib::infrastructure::overlay;
+#[cfg(target_os = "linux")]
+use voice_transcribe_lib::infrastructure::target_app;
 use voice_transcribe_lib::{
     application::{orchestrator, AppState},
     infrastructure::persistence::{db::Db, settings_repo},
@@ -76,6 +78,9 @@ fn main() {
             let state_for_error = state_handle.clone();
             let hotkey_for_error = hotkey_str.clone();
             let app_for_error = app.handle().clone();
+
+            #[cfg(target_os = "linux")]
+            target_app::start_tracking(state_handle.active_window.clone());
 
             if let Err(e) = app.global_shortcut().on_shortcut(shortcut, move |_app, _shortcut, event| {
                 tracing::debug!(state = ?event.state, "Global shortcut event received");

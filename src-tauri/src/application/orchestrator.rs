@@ -60,6 +60,24 @@ pub fn on_press(app: &AppHandle, state: &AppState) {
 
     drop(recording);
 
+    #[cfg(target_os = "linux")]
+    {
+        let active_window = state.active_window.lock().clone();
+        let mut paste_target = state.paste_target_window.lock();
+        *paste_target = active_window;
+
+        if let Some(info) = paste_target.as_ref() {
+            tracing::info!(
+                resource_class = %info.resource_class,
+                desktop_file = %info.desktop_file,
+                caption = %info.caption,
+                "Captured paste target window"
+            );
+        } else {
+            tracing::info!("No paste target window available at hotkey press");
+        }
+    }
+
     // Resolve audio device from settings and (re)spawn recorder if needed
     {
         let settings = state.settings.lock();
@@ -446,6 +464,9 @@ pub fn update_hotkey(app: &AppHandle, state: &AppState, hotkey_str: &str) -> boo
 pub fn shutdown(app: &AppHandle, state: &AppState) {
     tracing::info!("Orchestrator shutdown");
 
+    #[cfg(target_os = "linux")]
+    crate::infrastructure::target_app::unload_kwin_helper();
+
     // Hide overlay first so it doesn't linger during exit (Linux only)
     #[cfg(any(target_os = "linux", target_os = "windows"))]
     hide_overlay(app);
@@ -470,4 +491,9 @@ pub fn shutdown(app: &AppHandle, state: &AppState) {
     let mut paste_slot = state.paste_controller.lock();
     paste_slot.reset();
     tracing::info!("Paste controller reset");
+
+    #[cfg(target_os = "linux")]
+    {
+        *state.paste_target_window.lock() = None;
+    }
 }

@@ -27,6 +27,13 @@ pub struct AppState {
     /// sessions (which causes KDE/Wayland "Remote Control" prompts).
     pub paste_controller: Arc<Mutex<crate::infrastructure::paste::PasteController>>,
 
+    /// Last active target window reported by a Linux desktop integration.
+    pub active_window: Arc<Mutex<Option<crate::infrastructure::target_app::ActiveWindowInfo>>>,
+
+    /// Active window captured at push-to-talk press time for the pending paste.
+    pub paste_target_window:
+        Arc<Mutex<Option<crate::infrastructure::target_app::ActiveWindowInfo>>>,
+
     /// Current recording/processing state.
     pub recording: Arc<Mutex<RecordingState>>,
 
@@ -61,6 +68,8 @@ impl AppState {
             paste_controller: Arc::new(Mutex::new(
                 crate::infrastructure::paste::PasteController::new(),
             )),
+            active_window: Arc::new(Mutex::new(None)),
+            paste_target_window: Arc::new(Mutex::new(None)),
             recording: Arc::new(Mutex::new(RecordingState::Idle)),
             last_error: Arc::new(Mutex::new(None)),
             level_cancel: Arc::new(AtomicBool::new(false)),
