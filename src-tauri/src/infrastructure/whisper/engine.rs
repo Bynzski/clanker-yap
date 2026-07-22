@@ -2,11 +2,16 @@
 //!
 //! Audio contract: samples must be 16 kHz mono f32 in [-1, 1].
 
-use std::sync::Arc;
 use whisper_rs::{FullParams, SamplingStrategy};
 
-use crate::domain::constants::MIN_RECORDING_DURATION_MS;
+use crate::domain::constants::{
+    MAX_WHISPER_INFERENCE_THREADS, MIN_RECORDING_DURATION_MS, WHISPER_SAMPLE_RATE,
+};
 use crate::domain::error::{AppError, Result};
+
+fn inference_thread_count(physical_cores: usize) -> i32 {
+    physical_cores.clamp(1, MAX_WHISPER_INFERENCE_THREADS) as i32
+}
 
 /// Wrapper around whisper-rs WhisperContext.
 pub struct WhisperEngine {
@@ -20,11 +25,17 @@ impl WhisperEngine {
             return Err(AppError::ModelNotFound(model_path.into()));
         }
 
+        let load_started = std::time::Instant::now();
         let ctx = whisper_rs::WhisperContext::new_with_params(
             model_path,
             whisper_rs::WhisperContextParameters::default(),
         )
         .map_err(|e| AppError::Whisper(format!("load: {}", e)))?;
+
+        tracing::info!(
+            model_load_ms = load_started.elapsed().as_millis() as u64,
+            "Whisper model loaded"
+        );
 
         Ok(Self { ctx })
     }
@@ -35,18 +46,22 @@ impl WhisperEngine {
     /// Returns the transcribed text with leading/trailing whitespace trimmed.
     pub fn transcribe(&self, samples: &[f32]) -> Result<String> {
         // Duration validation
-        let duration_ms = samples.len() as i64 * 1000 / 16_000;
+        let duration_ms = samples.len() as i64 * 1000 / WHISPER_SAMPLE_RATE as i64;
         if duration_ms < MIN_RECORDING_DURATION_MS {
             return Err(AppError::Whisper("Audio too short".into()));
         }
 
+        let state_started = std::time::Instant::now();
         let mut state = self
             .ctx
             .create_state()
             .map_err(|e| AppError::Whisper(format!("create_state: {}", e)))?;
+        let state_create_ms = state_started.elapsed().as_millis() as u64;
 
+        let physical_cores = num_cpus::get_physical();
+        let inference_threads = inference_thread_count(physical_cores);
         let mut params = FullParams::new(SamplingStrategy::Greedy { best_of: 1 });
-        params.set_n_threads(num_cpus::get_physical() as i32);
+        params.set_n_threads(inference_threads);
         params.set_language(Some("en"));
         params.set_translate(false);
         params.set_print_special(false);
@@ -68,22 +83,43 @@ impl WhisperEngine {
         }
 
         let elapsed_ms = t0.elapsed().as_millis() as u64;
-        tracing::info!(samples = samples.len(), elapsed_ms, "transcribed");
+        let realtime_factor = elapsed_ms as f64 / duration_ms as f64;
+        tracing::info!(
+            samples = samples.len(),
+            audio_duration_ms = duration_ms,
+            physical_cores,
+            inference_threads,
+            state_create_ms,
+            elapsed_ms,
+            realtime_factor,
+            "transcribed"
+        );
 
         Ok(out.trim().to_string())
     }
 }
 
-use crate::application::AppState;
+#[cfg(test)]
+mod tests {
+    use super::inference_thread_count;
+    use crate::domain::constants::MAX_WHISPER_INFERENCE_THREADS;
 
-/// Lazily loads and caches the whisper engine.
-pub fn load_or_get(state: &AppState) -> Result<Arc<WhisperEngine>> {
-    let mut slot = state.whisper.lock();
-    if let Some(engine) = slot.as_ref() {
-        return Ok(engine.clone());
+    #[test]
+    fn inference_threads_preserve_smaller_cpu_counts() {
+        assert_eq!(inference_thread_count(4), 4);
+        assert_eq!(inference_thread_count(8), 8);
     }
-    let path = state.settings.lock().model_path.clone();
-    let engine = Arc::new(WhisperEngine::load(&path)?);
-    *slot = Some(engine.clone());
-    Ok(engine)
+
+    #[test]
+    fn inference_threads_are_capped_for_large_and_hybrid_cpus() {
+        assert_eq!(
+            inference_thread_count(MAX_WHISPER_INFERENCE_THREADS + 6),
+            MAX_WHISPER_INFERENCE_THREADS as i32
+        );
+    }
+
+    #[test]
+    fn inference_threads_never_return_zero() {
+        assert_eq!(inference_thread_count(0), 1);
+    }
 }

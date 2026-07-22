@@ -16,6 +16,12 @@ pub const MAX_RECORDING_DURATION_MS: i64 = 60_000;
 /// Sample rate required by whisper.cpp (16 kHz).
 pub const WHISPER_SAMPLE_RATE: u32 = 16_000;
 
+/// Upper bound for CPU threads used by whisper.cpp inference.
+///
+/// Using every physical core can regress performance on hybrid CPUs because
+/// whisper.cpp's workload becomes limited by scheduling and memory bandwidth.
+pub const MAX_WHISPER_INFERENCE_THREADS: usize = 12;
+
 /// Default GGML model file name.
 pub const DEFAULT_MODEL_FILE: &str = "ggml-base.en.bin";
 

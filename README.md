@@ -31,7 +31,9 @@ Default hotkey: `Ctrl+Shift+V`
 - Floating recording overlay with live mic level visualization
 - Clipboard + paste injection
 - Paste modes for standard apps and terminals
+- Automatic terminal-aware paste selection on Linux
 - SQLite-backed settings, transcription history, and cumulative word count
+- Full-text copy controls for persisted history entries
 - Built-in model download support for `ggml-base.en.bin`
 - Single-instance desktop behavior
 
@@ -46,12 +48,13 @@ Clanker Yap is designed to run **entirely on-device**.
 
 ## Current status
 
-Clanker Yap is actively developed and currently ships as a **Linux x86_64 AppImage**.
+Clanker Yap is actively developed and ships Linux x86_64 AppImage and `.deb` bundles. Windows installer builds are supported from a Windows host.
 
-Release confidence notes for `0.1.0`:
+Current platform support:
 - **Wayland:** smoke tested
 - **X11:** smoke tested
-- **macOS / Windows:** not yet supported as release targets
+- **Windows:** supported and validated by Windows CI
+- **macOS:** not yet supported as a release target
 
 ## Quick start
 

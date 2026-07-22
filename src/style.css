@@ -888,14 +888,23 @@ code.setting-primary {
 
 .history-item {
     display: grid;
-    gap: 4px;
+    grid-template-columns: minmax(0, 1fr) 28px;
+    align-items: start;
+    gap: 8px;
     animation: transcript-reveal 160ms ease-out both;
+}
+
+.history-content {
+    display: grid;
+    gap: 4px;
+    min-width: 0;
 }
 
 .history-text {
     color: var(--text-primary);
     font-size: 12px;
     line-height: 1.4;
+    overflow-wrap: anywhere;
 }
 
 .history-meta {
@@ -903,6 +912,51 @@ code.setting-primary {
     font-size: 10px;
     text-transform: uppercase;
     letter-spacing: 0.05em;
+}
+
+.history-copy-btn {
+    width: 28px;
+    height: 28px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-sm);
+    background: var(--bg-tertiary);
+    color: var(--text-secondary);
+    cursor: pointer;
+    transition: background var(--transition), color var(--transition), border-color var(--transition), transform var(--transition);
+}
+
+.history-copy-btn svg {
+    width: 15px;
+    height: 15px;
+    fill: none;
+    stroke: currentColor;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    stroke-width: 2;
+}
+
+.history-copy-btn:hover {
+    color: var(--text-primary);
+    border-color: rgba(139, 148, 158, 0.45);
+    transform: translateY(-1px);
+}
+
+.history-copy-btn:active {
+    transform: scale(0.96);
+}
+
+.history-copy-btn:disabled {
+    cursor: wait;
+    opacity: 0.75;
+    transform: none;
+}
+
+.history-copy-btn.copied {
+    color: var(--accent-success);
+    border-color: rgba(63, 185, 80, 0.45);
 }
 
 .empty-state {

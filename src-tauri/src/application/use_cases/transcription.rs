@@ -2,9 +2,13 @@
 
 use crate::application::state::AppState;
 use crate::domain::constants::MAX_HISTORY_ITEMS;
+use crate::domain::error::AppError;
 use crate::domain::transcription::{count_words, Transcription};
 use crate::domain::Result;
+use crate::infrastructure::paste;
 use crate::infrastructure::persistence::{settings_repo, transcription_repo, Db};
+use tauri::AppHandle;
+use uuid::Uuid;
 
 /// Save a new transcription entry and update word count in settings.
 pub fn save_transcription(db: &Db, transcription: &Transcription, state: &AppState) -> Result<()> {
@@ -27,6 +31,18 @@ pub fn save_transcription(db: &Db, transcription: &Transcription, state: &AppSta
 /// Get recent transcription history.
 pub fn get_history(db: &Db, limit: Option<u32>) -> Result<Vec<Transcription>> {
     transcription_repo::recent(db, limit.unwrap_or(MAX_HISTORY_ITEMS))
+}
+
+/// Copies a saved transcription's full text to the system clipboard.
+pub fn copy_to_clipboard(app: &AppHandle, db: &Db, id: &str) -> Result<()> {
+    let transcription_id =
+        Uuid::parse_str(id).map_err(|_| AppError::TranscriptionNotFound(id.to_string()))?;
+    let transcription = transcription_repo::find_by_id(db, transcription_id)?
+        .ok_or_else(|| AppError::TranscriptionNotFound(id.to_string()))?;
+
+    paste::copy_text(app, &transcription.text)?;
+
+    Ok(())
 }
 
 #[cfg(test)]

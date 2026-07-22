@@ -30,6 +30,9 @@ pub enum AppError {
     #[error("Paste injection failed: {0}")]
     PasteFailed(String),
 
+    #[error("Transcription not found: {0}")]
+    TranscriptionNotFound(String),
+
     #[error("Settings invalid: {0}")]
     SettingsInvalid(String),
 }

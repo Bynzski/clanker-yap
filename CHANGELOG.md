@@ -6,6 +6,22 @@ The format is inspired by [Keep a Changelog](https://keepachangelog.com/en/1.1.0
 
 ## [Unreleased]
 
+## [0.2.1] - 2026-07-22
+
+### Added
+- Linux target-app detection selects terminal paste behavior from the focused application instead of relying on a single global paste mode
+- Copy controls for persisted transcription history entries, including full-text clipboard retrieval from SQLite
+- Structured timing logs for model loading, Whisper state creation, inference, paste, persistence, and total pipeline latency
+
+### Changed
+- Whisper CPU inference is capped at 12 threads on larger and hybrid processors, improving the local `base.en` benchmark from 874 ms to 358 ms for an 11-second speech sample on the development machine
+- History copy controls are shown only for entries confirmed to be persisted
+
+### Fixed
+- Unsaved transcription events no longer receive fabricated IDs that make their copy actions fail with `Transcription not found`
+- Copying a truncated history preview now places the complete persisted transcription on the clipboard
+- Automatic paste mode now recognizes Clanker Grid and known terminal applications on Linux
+
 ## [0.1.3] - 2026-05-01
 
 ### Added

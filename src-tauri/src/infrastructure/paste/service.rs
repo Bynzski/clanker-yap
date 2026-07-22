@@ -95,6 +95,15 @@ impl PasteController {
 
 // ── Public inject function ──────────────────────────────────────────────────
 
+/// Copies `text` to the system clipboard without simulating keyboard input.
+pub fn copy_text(app: &AppHandle, text: &str) -> Result<()> {
+    app.clipboard()
+        .write_text(text.to_string())
+        .map_err(|e| AppError::PasteFailed(format!("clipboard: {}", e)))?;
+
+    Ok(())
+}
+
 /// Copies `text` to the system clipboard. If `auto_paste` is `true`, also
 /// simulates Ctrl+V / terminal paste keystrokes via the persistent Enigo
 /// instance held by `controller`.
@@ -109,9 +118,7 @@ pub fn inject(
     controller: &mut PasteController,
 ) -> Result<PasteOutcome> {
     // Always write text to clipboard first
-    if let Err(e) = app.clipboard().write_text(text.to_string()) {
-        return Err(AppError::PasteFailed(format!("clipboard: {}", e)));
-    }
+    copy_text(app, text)?;
 
     if !auto_paste {
         tracing::info!("auto_paste disabled — text copied to clipboard only");

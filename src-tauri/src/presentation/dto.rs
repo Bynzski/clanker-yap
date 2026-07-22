@@ -67,6 +67,18 @@ pub struct TranscriptionHistoryResponse {
     pub transcriptions: Vec<TranscriptionItem>,
 }
 
+/// Request for copy_transcription_to_clipboard command.
+#[derive(Debug, Deserialize)]
+pub struct CopyTranscriptionRequest {
+    pub id: String,
+}
+
+/// Response for copy_transcription_to_clipboard command.
+#[derive(Debug, Serialize)]
+pub struct CopyTranscriptionResponse {
+    pub success: bool,
+}
+
 /// Response for get_status command.
 #[derive(Debug, Serialize)]
 pub struct StatusResponse {

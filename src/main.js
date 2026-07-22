@@ -139,7 +139,7 @@ function onTranscriptionComplete(payload) {
     }).catch(console.error);
 
     const item = {
-        id: generateId(),
+        id: payload.id || null,
         text: payload.text,
         duration_ms: payload.duration_ms || 0,
         created_at: new Date().toISOString(),
@@ -168,6 +168,12 @@ function onHotkeyConflict(payload) {
 }
 
 function handleDocumentClick(event) {
+    const copyButton = event.target.closest("[data-copy-transcription-id]");
+    if (copyButton) {
+        copyHistoryItem(copyButton);
+        return;
+    }
+
     const microphoneSelect = document.getElementById("microphone-select");
     if (!microphoneSelect) return;
 
@@ -338,15 +344,56 @@ function updateHistoryUI(items) {
         .map((item) => {
             const text = item.text.length > 120 ? `${item.text.slice(0, 120)}…` : item.text;
             const time = relativeTime(item.created_at);
+            const copyControl = item.id
+                ? `
+                  <button
+                    class="history-copy-btn"
+                    type="button"
+                    data-copy-transcription-id="${escapeHtml(item.id)}"
+                    title="Copy transcription"
+                    aria-label="Copy transcription"
+                  >${copyIconSvg()}</button>
+                `
+                : "";
             return `
                 <li class="history-item">
-                  <span class="history-text">${escapeHtml(text)}</span>
-                  <span class="history-meta">${time} · ${item.duration_ms} ms</span>
+                  <span class="history-content">
+                    <span class="history-text">${escapeHtml(text)}</span>
+                    <span class="history-meta">${time} · ${item.duration_ms} ms</span>
+                  </span>
+                  ${copyControl}
                 </li>
             `;
         })
         .join("");
     scheduleWindowResize();
+}
+
+async function copyHistoryItem(button) {
+    const id = button.dataset.copyTranscriptionId;
+    if (!id || button.disabled) return;
+
+    const originalTitle = button.title;
+    button.disabled = true;
+
+    try {
+        await invoke("copy_transcription_to_clipboard", { request: { id } });
+        button.classList.add("copied");
+        button.innerHTML = checkIconSvg();
+        button.title = "Copied";
+        button.setAttribute("aria-label", "Copied");
+
+        window.setTimeout(() => {
+            button.classList.remove("copied");
+            button.innerHTML = copyIconSvg();
+            button.title = originalTitle || "Copy transcription";
+            button.setAttribute("aria-label", "Copy transcription");
+            button.disabled = false;
+        }, 1100);
+    } catch (err) {
+        button.disabled = false;
+        showError("transcription", `Failed to copy transcription: ${err}`);
+    }
 }
 
 function showError(type, message) {
@@ -805,18 +852,27 @@ function resetHotkeyCaptureState() {
     }
 }
 
-function generateId() {
-    return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, (char) => {
-        const random = Math.random() * 16 | 0;
-        const value = char === "x" ? random : (random & 0x3) | 0x8;
-        return value.toString(16);
-    });
-}
-
 function escapeHtml(value) {
     const div = document.createElement("div");
     div.textContent = value;
     return div.innerHTML;
+}
+
+function copyIconSvg() {
+    return `
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M8 8h10v12H8z"></path>
+          <path d="M6 16H4V4h12v2"></path>
+        </svg>
+    `;
+}
+
+function checkIconSvg() {
+    return `
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M5 13l4 4L19 7"></path>
+        </svg>
+    `;
 }
 
 function togglePanel(panel) {

@@ -35,6 +35,16 @@ fn clear_last_error(state: &AppState) {
     *state.last_error.lock() = None;
 }
 
+fn completion_transcription_id(
+    transcription: &Transcription,
+    save_result: &crate::domain::Result<()>,
+) -> Option<String> {
+    save_result
+        .as_ref()
+        .ok()
+        .map(|()| transcription.id.to_string())
+}
+
 // ── Level Emission Task ─────────────────────────────────────────────────────
 
 // ── Hotkey Press ────────────────────────────────────────────────────────────
@@ -255,8 +265,10 @@ pub fn on_release(app: &AppHandle, state: &AppState) {
 
 /// Record → transcribe → paste → save.
 fn pipeline(app: &AppHandle, state: &AppState, duration_ms: i64) {
+    let pipeline_started = std::time::Instant::now();
     tracing::debug!("pipeline started, duration_ms={}", duration_ms);
     // 1. Stop recorder and collect samples
+    let collect_started = std::time::Instant::now();
     let samples = {
         tracing::debug!("pipeline: acquiring recorder lock to stop_and_collect");
         let guard = state.recorder.lock();
@@ -293,6 +305,7 @@ fn pipeline(app: &AppHandle, state: &AppState, duration_ms: i64) {
             }
         }
     };
+    let collect_ms = collect_started.elapsed().as_millis() as u64;
 
     if samples.is_empty() {
         tracing::info!("No audio samples collected — not enough for transcription");
@@ -310,7 +323,20 @@ fn pipeline(app: &AppHandle, state: &AppState, duration_ms: i64) {
     tracing::debug!(samples = samples.len(), "Collected audio samples");
 
     // 2. Transcribe (CPU-bound whisper runs on this blocking thread)
-    let text = match transcribe_usecase::execute(&samples, state) {
+    let transcribe_started = std::time::Instant::now();
+    let transcribe_result = transcribe_usecase::execute(&samples, state);
+    let transcribe_ms = transcribe_started.elapsed().as_millis() as u64;
+    let realtime_factor = transcribe_ms as f64 / duration_ms.max(1) as f64;
+    tracing::info!(
+        recording_duration_ms = duration_ms,
+        collect_ms,
+        transcribe_ms,
+        realtime_factor,
+        success = transcribe_result.is_ok(),
+        "Transcription pipeline inference phase completed"
+    );
+
+    let text = match transcribe_result {
         Ok(t) => t,
         Err(e) => {
             transition_to_idle(state);
@@ -347,6 +373,7 @@ fn pipeline(app: &AppHandle, state: &AppState, duration_ms: i64) {
     #[cfg(any(target_os = "linux", target_os = "windows"))]
     hide_overlay_before_paste(app);
     tracing::info!(text_len = text.len(), "Attempting clipboard copy + paste");
+    let paste_started = std::time::Instant::now();
     let paste_outcome = match paste::execute(app, &text, state) {
         Ok(outcome) => {
             match &outcome {
@@ -366,6 +393,7 @@ fn pipeline(app: &AppHandle, state: &AppState, duration_ms: i64) {
             PasteOutcome::CopiedOnly
         }
     };
+    let paste_ms = paste_started.elapsed().as_millis() as u64;
 
     // 4. Save transcription
     let transcription = match Transcription::new(text.clone(), duration_ms) {
@@ -388,9 +416,13 @@ fn pipeline(app: &AppHandle, state: &AppState, duration_ms: i64) {
         }
     };
 
-    if let Err(e) = transcription_usecase::save_transcription(&state.db, &transcription, state) {
+    let save_started = std::time::Instant::now();
+    let save_result = transcription_usecase::save_transcription(&state.db, &transcription, state);
+    if let Err(e) = &save_result {
         tracing::warn!(error = ?e, "Failed to persist transcription");
     }
+    let persisted_id = completion_transcription_id(&transcription, &save_result);
+    let save_ms = save_started.elapsed().as_millis() as u64;
 
     transition_to_idle(state);
     clear_last_error(state);
@@ -402,6 +434,7 @@ fn pipeline(app: &AppHandle, state: &AppState, duration_ms: i64) {
     let _ = app.emit(
         "transcription-complete",
         serde_json::json!({
+            "id": persisted_id,
             "text": text,
             "duration_ms": duration_ms,
             "clipboard_only": clipboard_only
@@ -411,6 +444,18 @@ fn pipeline(app: &AppHandle, state: &AppState, duration_ms: i64) {
     // Hide overlay (Linux only)
     #[cfg(any(target_os = "linux", target_os = "windows"))]
     hide_overlay(app);
+
+    tracing::info!(
+        recording_duration_ms = duration_ms,
+        samples = samples.len(),
+        collect_ms,
+        transcribe_ms,
+        paste_ms,
+        save_ms,
+        total_pipeline_ms = pipeline_started.elapsed().as_millis() as u64,
+        realtime_factor,
+        "Transcription pipeline completed"
+    );
 }
 
 // ── Hotkey Re-registration ─────────────────────────────────────────────────
@@ -495,5 +540,35 @@ pub fn shutdown(app: &AppHandle, state: &AppState) {
     #[cfg(target_os = "linux")]
     {
         *state.paste_target_window.lock() = None;
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::completion_transcription_id;
+    use crate::domain::error::AppError;
+    use crate::domain::transcription::Transcription;
+
+    #[test]
+    fn completion_id_is_present_after_successful_persistence() {
+        let transcription =
+            Transcription::new("persisted text".into(), 500).expect("valid transcription");
+
+        assert_eq!(
+            completion_transcription_id(&transcription, &Ok(())),
+            Some(transcription.id.to_string())
+        );
+    }
+
+    #[test]
+    fn completion_id_is_absent_after_persistence_failure() {
+        let transcription =
+            Transcription::new("unsaved text".into(), 500).expect("valid transcription");
+        let save_result = Err(AppError::SettingsInvalid("save failed".into()));
+
+        assert_eq!(
+            completion_transcription_id(&transcription, &save_result),
+            None
+        );
     }
 }

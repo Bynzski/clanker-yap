@@ -53,6 +53,7 @@ fn main() {
             voice_transcribe_lib::presentation::commands::settings_cmds::update_settings,
             voice_transcribe_lib::presentation::commands::settings_cmds::download_default_model,
             voice_transcribe_lib::presentation::commands::transcription_cmds::get_transcription_history,
+            voice_transcribe_lib::presentation::commands::transcription_cmds::copy_transcription_to_clipboard,
             voice_transcribe_lib::presentation::commands::transcription_cmds::get_status,
             voice_transcribe_lib::presentation::commands::audio_cmds::list_audio_inputs,
             voice_transcribe_lib::presentation::commands::window_cmds::sync_window_size,
