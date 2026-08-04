@@ -1,112 +1,45 @@
-# Release Checklist
-
-Use this checklist when preparing a release of Clanker Yap.
-
-## Release targets
-
-| Platform | Artifact | Built on |
-|---|---|---|
-| Linux x86_64 | AppImage, `.deb` | Linux host |
-| Windows x64 | NSIS, MSI | Windows host |
-
-Tested:
-- Wayland
-- X11
-- Windows
-
-Not included:
-- macOS release
+# AppImage Release Checklist
 
 ## Pre-release
 
-- [ ] Confirm version in `src-tauri/tauri.conf.json`
-- [ ] Confirm version in `src-tauri/Cargo.toml`
-- [ ] Confirm README matches the current release target
-- [ ] Confirm `docs/build.md` matches the current release target
-- [ ] Confirm release notes draft exists
+- [ ] Version matches in `package.json`, `src-tauri/Cargo.toml`, and `src-tauri/tauri.conf.json`
+- [ ] `CHANGELOG.md` contains the dated release section
+- [ ] Release-facing documentation is current
+- [ ] Release notes draft exists
 
-## Quality gate
-
-```sh
-cd src-tauri
-cargo test
-cargo clippy -- -D warnings
-cargo fmt --check
-```
-
-- [ ] Tests pass
-- [ ] Clippy passes with zero warnings
-- [ ] Formatting check passes
-
-## Build (Linux)
+## Install and build
 
 ```sh
-npm run tauri:build
-```
-
-- [ ] AppImage builds successfully
-- [ ] `.deb` builds successfully
-- [ ] Artifacts exist at `src-tauri/target/release/bundle/`
-
-## Build (Windows — on Windows host)
-
-```powershell
 npm ci
-npx tauri build
+npm run release:verify
 ```
 
-- [ ] NSIS installer builds successfully
-- [ ] MSI builds successfully
-- [ ] Artifacts exist at `src-tauri/target/release/bundle/nsis/` and `.../msi/`
+- [ ] All Rust tests pass
+- [ ] Clippy passes with zero warnings
+- [ ] Formatting is clean
+- [ ] The AppImage exists in `src-tauri/target/release/bundle/appimage/`
+- [ ] No other package format was produced by this build
 
 ## Smoke tests
 
-### General
-- [ ] App launches from AppImage
+- [ ] AppImage launches
 - [ ] Main window renders correctly
-- [ ] Settings can be opened and saved
-- [ ] Model path is valid or in-app download works
-
-### Dictation workflow
+- [ ] Model path or in-app model download works
 - [ ] Global hotkey registers
-- [ ] Hold-to-record works
-- [ ] Release triggers transcription
-- [ ] Overlay appears during recording
-- [ ] Overlay hides after completion
-- [ ] Successful transcription pastes into a text editor
-- [ ] Successful transcription pastes into a terminal using terminal mode
+- [ ] Hold-to-record and release-to-transcribe work
 - [ ] Very short push-to-talk does not leave the app stuck
-
-### Persistence
-- [ ] Settings persist across restart
-- [ ] History persists across restart
-- [ ] Cumulative word count persists across restart
-
-### Session coverage
+- [ ] Blank audio is not pasted or saved
+- [ ] Overlay appears and hides correctly
+- [ ] Editor paste works
+- [ ] Terminal paste works
+- [ ] Settings, history, and cumulative word count survive restart
 - [ ] Wayland smoke test completed
-- [ ] X11 smoke test completed
-- [ ] Windows smoke test completed
+- [ ] X11 smoke test completed when practical
 
-## Release artifacts
+## Publish
 
-**Linux:**
-- [ ] Upload `.AppImage`
-- [ ] Upload `.deb` (optional)
-- [ ] Generate SHA256 checksum
-
-**Windows:**
-- [ ] Upload NSIS `.exe` installer
-- [ ] Upload MSI `.msi` installer (optional)
-- [ ] Generate SHA256 checksum
-
-**Common:**
-- [ ] Include release notes
-- [ ] Note which platforms were smoke tested
-- [ ] Note known limitations
-
-## Post-release
-
-- [ ] Tag release in git
-- [ ] Publish GitHub release
-- [ ] Upload Windows artifacts from Windows host
-- [ ] Verify download/install instructions once from the published release page
+- [ ] Generate `SHA256SUMS.txt`
+- [ ] Commit release preparation
+- [ ] Tag and push the release
+- [ ] Upload the AppImage and checksum if creating a GitHub release
+- [ ] Verify the published download once

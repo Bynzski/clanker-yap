@@ -35,6 +35,18 @@ fn clear_last_error(state: &AppState) {
     *state.last_error.lock() = None;
 }
 
+fn begin_processing(recording: &mut RecordingState) -> std::result::Result<i64, &'static str> {
+    match recording {
+        RecordingState::Recording { started_at } => {
+            let duration_ms = started_at.elapsed().as_millis() as i64;
+            *recording = RecordingState::Processing;
+            Ok(duration_ms)
+        }
+        RecordingState::Idle => Err("Idle"),
+        RecordingState::Processing => Err("Processing"),
+    }
+}
+
 fn completion_transcription_id(
     transcription: &Transcription,
     save_result: &crate::domain::Result<()>,
@@ -215,17 +227,12 @@ pub fn on_release(app: &AppHandle, state: &AppState) {
     tracing::info!("on_release called");
     let duration_ms = {
         let mut recording = state.recording.lock();
-        match std::mem::replace(&mut *recording, RecordingState::Processing) {
-            RecordingState::Recording { started_at } => {
+        match begin_processing(&mut recording) {
+            Ok(duration_ms) => {
                 tracing::debug!("on_release: transitioning from Recording -> Processing");
-                started_at.elapsed().as_millis() as i64
+                duration_ms
             }
-            other => {
-                let state_name = match other {
-                    RecordingState::Idle => "Idle",
-                    RecordingState::Recording { .. } => "Recording",
-                    RecordingState::Processing => "Processing",
-                };
+            Err(state_name) => {
                 tracing::warn!(
                     "Release received without matching press — state is {} (not Recording). Check for: 1) Key repeat events 2) Late release after pipeline completes 3) Multiple press events without release",
                     state_name
@@ -545,7 +552,8 @@ pub fn shutdown(app: &AppHandle, state: &AppState) {
 
 #[cfg(test)]
 mod tests {
-    use super::completion_transcription_id;
+    use super::{begin_processing, completion_transcription_id};
+    use crate::application::RecordingState;
     use crate::domain::error::AppError;
     use crate::domain::transcription::Transcription;
 
@@ -570,5 +578,31 @@ mod tests {
             completion_transcription_id(&transcription, &save_result),
             None
         );
+    }
+
+    #[test]
+    fn unmatched_release_does_not_change_idle_state() {
+        let mut recording = RecordingState::Idle;
+
+        assert_eq!(begin_processing(&mut recording), Err("Idle"));
+        assert!(matches!(recording, RecordingState::Idle));
+    }
+
+    #[test]
+    fn duplicate_release_does_not_change_processing_state() {
+        let mut recording = RecordingState::Processing;
+
+        assert_eq!(begin_processing(&mut recording), Err("Processing"));
+        assert!(matches!(recording, RecordingState::Processing));
+    }
+
+    #[test]
+    fn matching_release_transitions_recording_to_processing() {
+        let mut recording = RecordingState::Recording {
+            started_at: std::time::Instant::now(),
+        };
+
+        assert!(begin_processing(&mut recording).is_ok());
+        assert!(matches!(recording, RecordingState::Processing));
     }
 }

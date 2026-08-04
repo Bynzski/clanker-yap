@@ -1,6 +1,6 @@
 [package]
 name = "voice-transcribe"
-version = "0.2.1"
+version = "0.3.0"
 description = "Local voice-to-text transcription app"
 authors = ["Clanker contributors"]
 edition = "2021"
@@ -13,7 +13,6 @@ crate-type = ["staticlib", "cdylib", "rlib"]
 default = []
 # Linux-only: Wayland overlay positioning via GTK Layer Shell.
 # Requires the `gtk-layer-shell` system library (e.g., `libgtk-layer-shell` on Arch, `libgtk-layer-shell-dev` on Debian/Ubuntu).
-# Has no effect on Windows or macOS — the overlay is not built there regardless.
 # Without this feature, the overlay falls back to X11 `set_always_on_top` on Wayland as well.
 wayland-overlay = ["gtk-layer-shell"]
 
@@ -53,11 +52,3 @@ gtk-layer-shell = { version = "0.8", features = ["v0_6"], optional = true }
 gtk = { version = "0.18", features = ["v3_24"] }
 # Session D-Bus receiver for compositor-provided active-window metadata.
 zbus = "5.14"
-
-[target.'cfg(target_os = "windows")'.dependencies]
-# No Windows-specific dependencies are required.
-# The overlay is not built on Windows (see phase 1), and all other dependencies
-# (whisper-rs, cpal, enigo, rusqlite, etc.) compile cross-platform without extra crates.
-
-[target.'cfg(target_os = "darwin")'.dependencies]
-# No macOS-specific dependencies are required — same rationale as Windows above.

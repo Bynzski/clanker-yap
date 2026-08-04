@@ -6,6 +6,17 @@ The format is inspired by [Keep a Changelog](https://keepachangelog.com/en/1.1.0
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-08-03
+
+### Changed
+- Releases now produce a single Linux x86_64 AppImage; Debian and Windows bundle targets have been retired
+- Build, release, CI, and contributor documentation now describe the AppImage-only workflow
+- JavaScript dependency management is standardized on npm with a tracked lockfile
+
+### Fixed
+- Duplicate or unmatched hotkey release events no longer leave the recording state permanently stuck in `Processing`
+- Whisper's `[BLANK_AUDIO]` sentinel is treated as empty output and is no longer pasted or saved to history
+
 ## [0.2.1] - 2026-07-22
 
 ### Added

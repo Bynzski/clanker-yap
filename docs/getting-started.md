@@ -1,23 +1,18 @@
 # Getting Started with Clanker Yap
 
-This guide covers running Clanker Yap on **Linux** and **Windows**.
+This guide covers running Clanker Yap on Linux.
 
 ## Platform status
 
 Current release targets:
 
-- **Linux x86_64** — AppImage, `.deb`
-- **Windows x64** — NSIS, MSI
+- **Linux x86_64** — AppImage
 
 Tested environments:
 
 - **Linux (Wayland):** smoke tested
 - **Linux (X11):** smoke tested
-- **Windows:** smoke tested
-
-Not yet released:
-
-- macOS
+- **Windows/macOS:** not supported release targets
 
 ## System requirements
 

@@ -33,8 +33,6 @@ sudo pacman -S nodejs npm
 # Debian/Ubuntu
 sudo apt install nodejs npm
 
-# macOS
-brew install node
 ```
 
 ### "Rust not found"
@@ -95,8 +93,6 @@ sudo pacman -S base-devel
 # Debian/Ubuntu
 sudo apt install build-essential
 
-# macOS
-xcode-select --install
 ```
 
 ### "Package target mismatch"
@@ -130,10 +126,7 @@ npm run tauri:build
    - Try a different app with Ctrl+Shift+V
    - If it triggers there, change Clanker Yap's hotkey
 
-2. Check system permissions:
-   - **Linux:** Check if AppArmor or similar is blocking
-   - **macOS:** System Settings > Privacy & Security > Keyboard Monitoring
-   - **Windows:** Run as administrator
+2. Check whether AppArmor or another Linux security policy is blocking the app.
 
 3. Try a different hotkey:
    ```javascript
@@ -152,12 +145,6 @@ npm run tauri:build
 # Linux
 arecord -l
 pactl list sources short
-
-# macOS
-system_profiler SPAudioDataType
-
-# Windows
-Get-PnpDevice -Class AudioEndpoint
 ```
 
 2. Check microphone is working elsewhere:
@@ -347,12 +334,7 @@ You can configure KDE to remember the permission:
 
 2. Check for existing process:
    ```sh
-   # Linux
    ps aux | grep clanker
-   killall "Clanker Yap"
-   
-   # macOS
-   pgrep "Clanker Yap"
    killall "Clanker Yap"
    ```
 

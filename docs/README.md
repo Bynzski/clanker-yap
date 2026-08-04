@@ -8,15 +8,14 @@ Clanker Yap is a local voice-to-text desktop application that enables real-time 
 
 Current shipping targets:
 - Linux x86_64 AppImage (built on Linux)
-- Windows x64 NSIS/MSI installers (built on Windows host)
-- Smoke tested on Wayland, X11, and Windows
+- Smoke tested on Wayland and X11
 
 ## Documentation Index
 
 ### Getting Started
 - **[Installation](./getting-started.md)** - Linux setup and first run
 - **[Quick Start](./quick-start.md)** - Get up and running in minutes
-- **[Release Checklist](./release-checklist.md)** - Linux + Windows release checklist
+- **[Release Checklist](./release-checklist.md)** - AppImage release checklist
 
 ### Configuration
 - **[Configuration Guide](./configuration.md)** - All configuration options explained

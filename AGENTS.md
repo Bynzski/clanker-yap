@@ -107,8 +107,7 @@ This is the cardinal rule. Violate it and the codebase rots.
 # Development (hot reload frontend, compile Rust in debug)
 npm run tauri:dev
 
-# Production build — Linux host builds Linux targets (appimage, deb)
-# Windows targets (nsis, msi) are built on a Windows machine (see below)
+# Production build — produces only the Linux x86_64 AppImage
 npm run tauri:build
 ```
 
@@ -117,14 +116,14 @@ npm run tauri:build
 When building Tauri AppImages on Arch-based systems, always use:
 
 ```bash
-NO_STRIP=1 npx tauri build
+NO_STRIP=1 npx tauri build --bundles appimage
 ```
 
 `NO_STRIP=1` is required because `linuxdeploy`'s bundled `strip` is too old for Arch's newer ELF format (`.relr.dyn` sections). Without it, the build fails with "unknown type \[0x13\] section `.relr.dyn'" errors on nearly every shared library.
 
 A warning about `__TAURI_BUNDLE_TYPE` not being found may appear when the `tauri-cli` and Rust `tauri` crate versions are slightly mismatched. This is harmless unless the app uses Tauri's auto-updater. Keep CLI and crate versions aligned before enabling updater-related release workflows.
 
-> **Agents:** Do not run plain `npx tauri build` on Arch/CachyOS. Always use `NO_STRIP=1 npx tauri build` or `npm run tauri:build`.
+> **Agents:** Do not run plain `npx tauri build` on Arch/CachyOS. Always use `npm run tauri:build`, which includes `NO_STRIP=1` and restricts bundling to AppImage.
 
 ### Rust Backend (from `src-tauri/`)
 
@@ -238,45 +237,15 @@ Tests live alongside the code they test in `#[cfg(test)] mod tests` blocks:
 
 ---
 
-## Windows Build Workflow
+## Release Target
 
-The codebase supports Windows (`nsis`, `msi`) and Linux (`appimage`, `deb`) bundle targets. Artifact generation is **Linux-host only for Linux targets, Windows-host only for Windows targets**.
+Clanker Yap produces one release artifact: a Linux x86_64 AppImage. Debian, Windows, and macOS packages are not part of the build or release workflow.
 
-### Operating Model
+The production artifact is written to:
 
-| Machine | Role |
-|---|---|
-| **Linux (this machine)** | Development, prep, Rust validation (`cargo test`, `cargo clippy`, `cargo fmt`). Builds `appimage` and `deb` locally. |
-| **GitHub Actions** | Validates the Rust backend compiles on `windows-latest` (no artifact produced). |
-| **Windows machine** | Builds `nsis` and `msi` installers from a tagged commit. |
-
-**Windows installers are not built on this Linux machine.**
-
-### CI — Windows Validation (GitHub Actions)
-
-A workflow on `windows-latest` runs the standard Rust validation gate:
-```bash
-cd src-tauri
-cargo test
-cargo clippy -- -D warnings
-cargo fmt --check
+```text
+src-tauri/target/release/bundle/appimage/Clanker Yap_X.Y.Z_amd64.AppImage
 ```
-This confirms the backend compiles cleanly on Windows but does not produce an installer artifact.
-
-### Building Windows Installers (Windows host)
-
-From a Windows machine, from repo root:
-
-```powershell
-npm ci
-npx tauri build
-```
-
-Expected outputs:
-- `src-tauri/target/release/bundle/nsis/` — NSIS installer
-- `src-tauri/target/release/bundle/msi/` — MSI installer
-
-Smoke-test the installer before publishing.
 
 ---
 

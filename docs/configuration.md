@@ -6,8 +6,6 @@ Detailed explanation of all Clanker Yap configuration options.
 
 Settings are stored in a SQLite database at:
 - **Linux**: `~/.local/share/voice-transcribe/voice-transcribe.db`
-- **macOS**: `~/Library/Application Support/dev.jay.voice-transcribe/voice-transcribe.db`
-- **Windows**: `%APPDATA%\dev.jay.voice-transcribe\voice-transcribe.db`
 
 ## Settings Schema
 
@@ -28,11 +26,11 @@ Settings are stored in a SQLite database at:
 Hotkeys use Tauri accelerator format: `<Modifier>+<Key>`
 
 **Valid modifiers:**
-- `CmdOrCtrl` - Control on Windows/Linux, Command on macOS
+- `CmdOrCtrl` - Control on Linux
 - `Ctrl` - Control key
 - `Alt` - Alt key
 - `Shift` - Shift key
-- `Super` - Windows key / Command key
+- `Super` - Super key
 
 **Requirements:**
 - At least one modifier key is required
@@ -42,7 +40,7 @@ Hotkeys use Tauri accelerator format: `<Modifier>+<Key>`
 
 | Hotkey | Description |
 |--------|-------------|
-| `CmdOrCtrl+Shift+V` | Default (Ctrl+Shift on Windows/Linux, Cmd+Shift on macOS) |
+| `CmdOrCtrl+Shift+V` | Default (`Ctrl+Shift+V` on Linux) |
 | `Alt+R` | Alt+R |
 | `CmdOrCtrl+Alt+Space` | All modifiers plus space |
 
@@ -117,8 +115,6 @@ Model URLs from [ggml-org/whisper.cpp](https://huggingface.co/ggml-org/whisper.c
 
 List available devices via the microphone dropdown in the UI, or check:
 - **Linux**: `arecord -l` or `pactl list sources`
-- **macOS**: System Settings > Sound > Input
-- **Windows**: Sound settings
 
 ## Paste Mode Configuration
 

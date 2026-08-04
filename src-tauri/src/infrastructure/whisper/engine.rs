@@ -13,6 +13,16 @@ fn inference_thread_count(physical_cores: usize) -> i32 {
     physical_cores.clamp(1, MAX_WHISPER_INFERENCE_THREADS) as i32
 }
 
+fn normalize_transcription_text(text: &str) -> String {
+    let trimmed = text.trim();
+
+    if trimmed.eq_ignore_ascii_case("[BLANK_AUDIO]") {
+        String::new()
+    } else {
+        trimmed.to_string()
+    }
+}
+
 /// Wrapper around whisper-rs WhisperContext.
 pub struct WhisperEngine {
     ctx: whisper_rs::WhisperContext,
@@ -95,13 +105,13 @@ impl WhisperEngine {
             "transcribed"
         );
 
-        Ok(out.trim().to_string())
+        Ok(normalize_transcription_text(&out))
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use super::inference_thread_count;
+    use super::{inference_thread_count, normalize_transcription_text};
     use crate::domain::constants::MAX_WHISPER_INFERENCE_THREADS;
 
     #[test]
@@ -121,5 +131,19 @@ mod tests {
     #[test]
     fn inference_threads_never_return_zero() {
         assert_eq!(inference_thread_count(0), 1);
+    }
+
+    #[test]
+    fn blank_audio_sentinel_is_normalized_to_empty_text() {
+        assert_eq!(normalize_transcription_text(" [BLANK_AUDIO] "), "");
+        assert_eq!(normalize_transcription_text("[blank_audio]"), "");
+    }
+
+    #[test]
+    fn spoken_text_is_trimmed_and_preserved() {
+        assert_eq!(
+            normalize_transcription_text("  hello world  "),
+            "hello world"
+        );
     }
 }

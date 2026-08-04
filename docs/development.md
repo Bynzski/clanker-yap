@@ -424,7 +424,6 @@ Debug paste mode:
 
 Current release targets:
 - Linux x86_64 AppImage
-- Windows x64 NSIS/MSI
 
 Build it with:
 
@@ -436,10 +435,7 @@ Output location:
 
 ```text
 src-tauri/target/release/bundle/appimage/
-src-tauri/target/release/bundle/deb/
 ```
-
-For Windows builds, see [Build & Release](./build.md).
 
 ## Contributing
 

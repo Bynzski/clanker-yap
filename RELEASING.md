@@ -1,246 +1,64 @@
 # Releasing Clanker Yap
 
-This document defines the release process, versioning rules, changelog rules, and Git hook workflow for Clanker Yap.
+Clanker Yap ships one release artifact: a Linux x86_64 AppImage built on Linux.
 
-## Current release targets
+## Versioning
 
-Clanker Yap ships as:
+The project uses SemVer-style `MAJOR.MINOR.PATCH` versions:
 
-- **Linux x86_64 AppImage** (built on Linux)
-- **Windows x64 NSIS/MSI** (built on Windows host)
+- Patch: bug fixes and small compatible improvements.
+- Minor: new features, meaningful workflow changes, or packaging-policy changes.
+- Major: incompatible settings, storage, or user-workflow changes.
 
-Release confidence:
-- **Linux (Wayland):** smoke tested
-- **Linux (X11):** smoke tested
-- **Windows:** smoke tested
-- **macOS:** not yet a supported release target
-
-## Versioning rules
-
-Clanker Yap uses **SemVer-style versioning**:
-
-`MAJOR.MINOR.PATCH`
-
-### Patch release (`0.1.x`)
-Use a patch release for:
-- bug fixes
-- packaging fixes
-- docs-only corrections
-- small UX improvements with no workflow breakage
-- dependency bumps with no user-facing behavior change
-
-Examples:
-- `0.1.1`
-- `0.1.2`
-
-### Minor release (`0.x.0` → `0.y.0`)
-Use a minor release for:
-- new user-facing features
-- meaningful workflow improvements
-- new configuration options
-- new release-platform support
-- backward-compatible desktop behavior changes
-
-Examples:
-- `0.2.0`
-- `0.3.0`
-
-### Major release (`1.0.0`, `2.0.0`)
-Use a major release for:
-- breaking changes to user workflows
-- incompatible settings or storage changes
-- default behavior changes that require migration guidance
-- significant platform/support policy changes
-
-Examples:
-- `1.0.0`
-- `2.0.0`
-
-## What counts as a breaking change here?
-
-For Clanker Yap, a change is considered breaking if it:
-- removes or changes expected push-to-talk behavior
-- breaks compatibility with existing persisted settings/history
-- changes required model setup in a non-compatible way
-- removes a supported platform or release artifact
-- significantly changes paste behavior without a migration note
-
-## Changelog rules
-
-We keep a human-written changelog in [`CHANGELOG.md`](./CHANGELOG.md).
-
-Format:
-- Keep entries grouped under release headings
-- Use these sections where relevant:
-  - `Added`
-  - `Changed`
-  - `Fixed`
-  - `Removed`
-  - `Notes`
-- Write for users, not just developers
-- Mention packaging/platform changes explicitly
-- Mention important known limitations explicitly
-
-### Changelog workflow
-
-1. Add noteworthy changes to `Unreleased`
-2. Before release, convert `Unreleased` into the version heading
-3. Add the release date
-4. Start a fresh `Unreleased` section after tagging/publishing
-
-## Release checklist
-
-Use [`docs/release-checklist.md`](./docs/release-checklist.md) for the concrete release checklist.
-
-## Required verification
-
-Before every release:
-
-```sh
-npm run verify:rust
-npm run tauri:build
-```
-
-This means:
-- tests pass
-- clippy passes with zero warnings
-- formatting is clean
-- the Linux AppImage bundles successfully
+Keep noteworthy changes in [`CHANGELOG.md`](./CHANGELOG.md) under `Unreleased`. Before a release, move them into a dated version section and start a fresh `Unreleased` section.
 
 ## Release procedure
 
-### 1. Update versions
+1. Update the version in `package.json`, `src-tauri/Cargo.toml`, and `src-tauri/tauri.conf.json`.
+2. Update `CHANGELOG.md` and release-facing documentation.
+3. Run the complete release command:
 
-Update version numbers in:
-- `src-tauri/tauri.conf.json`
-- `src-tauri/Cargo.toml`
-- `package.json`
+   ```sh
+   npm ci
+   npm run release:verify
+   ```
 
-### 2. Update docs and changelog
+   `release:verify` runs all Rust checks and builds only the AppImage. The build script includes `NO_STRIP=1`, required on Arch/CachyOS.
 
-- Update `CHANGELOG.md`
-- Confirm `README.md` reflects the current release target
-- Confirm `docs/build.md` is accurate
-- Confirm `docs/release-checklist.md` still matches reality
+4. Smoke-test:
 
-### 3. Run verification
+   ```sh
+   chmod +x "src-tauri/target/release/bundle/appimage/Clanker Yap_X.Y.Z_amd64.AppImage"
+   ./src-tauri/target/release/bundle/appimage/Clanker\ Yap_X.Y.Z_amd64.AppImage
+   ```
 
-```sh
-npm run verify:rust
-npm run tauri:build
-```
+   Verify launch, hotkey registration, record → transcribe → paste, editor and terminal paste, overlay behavior, settings, history, and word-count persistence.
 
-### 4. Smoke test the artifact
+5. Generate the checksum:
 
-At minimum:
-- launch the AppImage
-- confirm hotkey registration
-- confirm record → transcribe → paste flow
-- confirm editor paste works
-- confirm terminal paste works
-- confirm overlay behavior
-- confirm settings/history/word count persistence
+   ```sh
+   cd src-tauri/target/release/bundle/appimage
+   sha256sum "Clanker Yap_X.Y.Z_amd64.AppImage" > SHA256SUMS.txt
+   ```
 
-For now, note whether testing was done on:
-- Wayland
-- X11
+6. Commit, tag, and push:
 
-### 5. Compute checksums
+   ```sh
+   git commit -m "chore(release): prepare vX.Y.Z"
+   git tag vX.Y.Z
+   git push origin main --tags
+   ```
 
-```sh
-sha256sum src-tauri/target/release/bundle/appimage/*.AppImage
-sha256sum src-tauri/target/release/bundle/nsis/*.exe
-sha256sum src-tauri/target/release/bundle/msi/*.msi
-```
+7. If publishing a GitHub release, upload the AppImage and `SHA256SUMS.txt`, then include highlights, smoke-test coverage, and known limitations.
 
-### 6. Commit release prep
-
-Use a conventional commit, for example:
-
-```text
-chore(release): prepare v0.1.0
-```
-
-### 7. Tag the release
-
-```sh
-git tag v0.1.0
-git push origin main --tags
-```
-
-### 8. Publish GitHub release
-
-Include:
-- Linux AppImage artifact + SHA256 checksum
-- Windows NSIS installer + SHA256 checksum (uploaded from Windows host)
-- Summary of notable features/fixes
-- Platform smoke-test notes
-- Known limitations
+Use [`docs/release-checklist.md`](./docs/release-checklist.md) for the concrete checklist.
 
 ## Git hooks
 
-This repo includes Git hooks in [`.githooks/`](./.githooks):
-
-- `commit-msg` — enforces Conventional Commit format
-- `pre-push` — runs Rust verification before push
-
-Install them with:
+Install the repository hooks with:
 
 ```sh
 npm run hooks:install
 ```
 
-This sets:
-
-```sh
-git config core.hooksPath .githooks
-```
-
-## Commit rules
-
-Commit messages should follow Conventional Commits:
-
-```text
-<type>[optional scope]: <description>
-```
-
-Examples:
-- `fix: treat short recordings as empty captures`
-- `docs(release): add AppImage release workflow`
-- `feat(settings): add cumulative word count`
-
-Recommended types:
-- `feat`
-- `fix`
-- `docs`
-- `refactor`
-- `test`
-- `build`
-- `ci`
-- `chore`
-
-## Release note template
-
-Suggested structure for GitHub releases:
-
-```md
-## Clanker Yap vX.Y.Z
-
-### Highlights
-- ...
-
-### Included in this release
-- ...
-
-### Artifacts
-- Linux x86_64 AppImage
-- Windows x64 NSIS installer
-
-### Validation
-- Linux (Wayland) smoke tested
-- Linux (X11) smoke tested
-- Windows smoke tested
-
-### Known limitations
-- macOS not yet supported
-```
+The `commit-msg` hook enforces Conventional Commits and `pre-push` runs the Rust verification gate.
