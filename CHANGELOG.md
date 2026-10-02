@@ -6,6 +6,17 @@ The format is inspired by [Keep a Changelog](https://keepachangelog.com/en/1.1.0
 
 ## [Unreleased]
 
+## [0.3.1] - 2026-10-02
+
+### Fixed
+- Wayland push-to-talk uses the desktop GlobalShortcuts portal so holding the hotkey no longer sends repeated characters into native Wayland terminals such as Konsole running Hermes
+- Wayland shortcut setup no longer initializes the X11 hotkey plugin or depends on XWayland for shortcut delivery
+
+### Changed
+- Wayland shortcut editing opens the desktop's shortcut configuration dialog, and the app displays the desktop's actual binding
+- The Linux AppImage includes the portal client; supported desktops need no extra helper package
+- Unsupported or cancelled desktop shortcut setup reports an error instead of falling back to a key-leaking X11 grab
+
 ## [0.3.0] - 2026-08-03
 
 ### Changed
