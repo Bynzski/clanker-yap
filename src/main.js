@@ -27,6 +27,7 @@ async function init() {
     showStatus("loading", "Loading", "Initializing");
     setupWindowSizing();
     setupUiEventListeners();
+    await setupEventListeners();
 
     try {
         const [settingsData, historyData, statusData, versionData] = await Promise.all([
@@ -67,8 +68,17 @@ async function init() {
         showError("settings", `Failed to load application state: ${err}`);
     }
 
-    await setupEventListeners();
+    await refreshSettings();
     scheduleWindowResize();
+}
+
+async function refreshSettings() {
+    try {
+        settings = await invoke("get_settings");
+        updateSettingsUI(settings);
+    } catch (err) {
+        console.error("Failed to refresh settings:", err);
+    }
 }
 
 async function loadModelDownloadInfo() {
@@ -87,6 +97,7 @@ async function setupEventListeners() {
         { name: "transcription-complete", handler: onTranscriptionComplete },
         { name: "transcription-error", handler: onTranscriptionError },
         { name: "hotkey-conflict", handler: onHotkeyConflict },
+        { name: "hotkey-changed", handler: refreshSettings },
     ];
 
     for (const { name, handler } of events) {
@@ -277,8 +288,8 @@ function updateSettingsUI(nextSettings) {
     const pasteModeDescriptionEl = document.getElementById("paste-mode-description");
     const micValueEl = document.getElementById("microphone-value");
 
-    if (hotkeyEl) hotkeyEl.textContent = nextSettings.hotkey || "--";
-    if (hotkeyDisplayEl) hotkeyDisplayEl.textContent = formatHotkeyForDisplay(nextSettings.hotkey) || "Press a shortcut with at least one modifier.";
+    if (hotkeyEl) hotkeyEl.textContent = nextSettings.hotkey_display || nextSettings.hotkey || "--";
+    if (hotkeyDisplayEl) hotkeyDisplayEl.textContent = (nextSettings.hotkey_display || formatHotkeyForDisplay(nextSettings.hotkey)) || "Press a shortcut with at least one modifier.";
     if (modelNameEl) modelNameEl.textContent = nextSettings.model_name || "--";
     if (modelPathEl) modelPathEl.textContent = nextSettings.model_path || "--";
     if (modelInput) modelInput.value = nextSettings.model_path || "";
@@ -480,6 +491,7 @@ async function updateHotkey(newHotkey) {
         }
 
         settings.hotkey = newHotkey;
+        settings.hotkey_display = newHotkey;
         updateSettingsUI(settings);
         resetHotkeyCaptureState();
         clearError();
@@ -622,7 +634,15 @@ function relativeTime(isoString) {
     }
 }
 
-function beginHotkeyCapture() {
+async function beginHotkeyCapture() {
+    if (settings?.hotkey_managed_by_desktop) {
+        try {
+            await invoke("configure_hotkey");
+        } catch (err) {
+            showError("settings", String(err));
+        }
+        return;
+    }
     showEdit("hotkey");
     hotkeyCaptureActive = true;
     capturedHotkey = null;
@@ -1209,7 +1229,7 @@ function updateToolbarHints(nextSettings) {
     const hintPaste = document.getElementById("hint-paste");
     const hintHistory = document.getElementById("hint-history");
 
-    if (hintHotkey) hintHotkey.textContent = nextSettings.hotkey || "--";
+    if (hintHotkey) hintHotkey.textContent = nextSettings.hotkey_display || nextSettings.hotkey || "--";
     if (hintModel) hintModel.textContent = nextSettings.model_name || "--";
 
     if (hintMic) {

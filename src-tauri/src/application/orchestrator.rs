@@ -470,6 +470,10 @@ fn pipeline(app: &AppHandle, state: &AppState, duration_ms: i64) {
 /// Re-registers the global shortcut when hotkey setting changes.
 /// Returns `true` on success, `false` on failure.
 pub fn update_hotkey(app: &AppHandle, state: &AppState, hotkey_str: &str) -> bool {
+    // Do not register an X11 grab on Wayland: it leaks the key into native windows.
+    if crate::application::use_cases::shortcuts::managed_by_desktop() {
+        return false;
+    }
     use tauri_plugin_global_shortcut::{GlobalShortcutExt, Shortcut, ShortcutState};
 
     let shortcut: Shortcut = match hotkey_str.parse() {
@@ -515,6 +519,9 @@ pub fn update_hotkey(app: &AppHandle, state: &AppState, hotkey_str: &str) -> boo
 /// then releases the recorder and whisper engine.
 pub fn shutdown(app: &AppHandle, state: &AppState) {
     tracing::info!("Orchestrator shutdown");
+
+    #[cfg(target_os = "linux")]
+    let _ = state.portal_shortcut.lock().take();
 
     #[cfg(target_os = "linux")]
     crate::infrastructure::target_app::unload_kwin_helper();

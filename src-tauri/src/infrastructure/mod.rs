@@ -6,3 +6,6 @@ pub mod paste;
 pub mod persistence;
 pub mod target_app;
 pub mod whisper;
+
+#[cfg(target_os = "linux")]
+pub mod shortcuts;

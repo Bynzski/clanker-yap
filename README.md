@@ -51,9 +51,17 @@ Clanker Yap is designed to run **entirely on-device**.
 Clanker Yap is actively developed and ships as a Linux x86_64 AppImage.
 
 Current platform support:
-- **Wayland:** smoke tested
+- **Wayland:** native global shortcuts through the desktop portal; the desktop consumes the hotkey before it reaches the focused app
 - **X11:** smoke tested
 - **Windows/macOS:** not supported release targets
+
+On Wayland, the first launch opens the desktop's shortcut dialog. Approve or choose
+“Hold to dictate”; use the app's shortcut edit button to reopen that dialog. The
+app displays the desktop's actual binding. The AppImage includes the portal client,
+so supported desktops such as KDE need no helper package. A desktop that does not
+provide the GlobalShortcuts portal reports a setup error rather than falling back
+to a shortcut that leaks keystrokes into other apps. On X11, shortcuts continue to
+be configured inside the app.
 
 ## Quick start
 

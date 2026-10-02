@@ -6,6 +6,8 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Serialize)]
 pub struct SettingsResponse {
     pub hotkey: String,
+    pub hotkey_display: String,
+    pub hotkey_managed_by_desktop: bool,
     pub model_path: String,
     pub model_name: String,
     pub paste_mode: String,

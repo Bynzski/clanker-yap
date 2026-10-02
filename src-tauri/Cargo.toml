@@ -52,3 +52,5 @@ gtk-layer-shell = { version = "0.8", features = ["v0_6"], optional = true }
 gtk = { version = "0.18", features = ["v3_24"] }
 # Session D-Bus receiver for compositor-provided active-window metadata.
 zbus = "5.14"
+futures-util = "0.3"
+tokio = { version = "1", features = ["time"] }

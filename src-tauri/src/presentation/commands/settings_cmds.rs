@@ -18,6 +18,11 @@ pub fn get_settings(state: State<'_, AppState>) -> Result<SettingsResponse> {
     let settings = state.settings.lock();
     Ok(SettingsResponse {
         hotkey: settings.hotkey.clone(),
+        hotkey_display: crate::application::use_cases::shortcuts::display(
+            state.inner(),
+            &settings.hotkey,
+        ),
+        hotkey_managed_by_desktop: crate::application::use_cases::shortcuts::managed_by_desktop(),
         model_path: settings.model_path.clone(),
         model_name: settings.model_name.clone(),
         paste_mode: settings.paste_mode.clone(),
@@ -25,6 +30,12 @@ pub fn get_settings(state: State<'_, AppState>) -> Result<SettingsResponse> {
         audio_input: settings.audio_input.clone(),
         total_words: settings.total_words,
     })
+}
+
+/// Opens the native desktop shortcut configuration UI.
+#[tauri::command]
+pub async fn configure_hotkey(state: State<'_, AppState>) -> Result<()> {
+    crate::application::use_cases::shortcuts::configure(state.inner()).await
 }
 
 /// Returns information about the built-in base.en model download.
@@ -47,6 +58,7 @@ pub fn update_settings(
     state: State<'_, AppState>,
     request: UpdateSettingsRequest,
 ) -> Result<UpdateSettingsResponse> {
+    crate::application::use_cases::shortcuts::validate_hotkey_update(request.hotkey.as_deref())?;
     let mut settings = state.settings.lock();
     let mut hotkey_change: Option<(String, String)> = None;
     let mut rollback_result: Option<UpdateSettingsResponse> = None;

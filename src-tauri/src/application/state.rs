@@ -37,6 +37,11 @@ pub struct AppState {
     /// Current recording/processing state.
     pub recording: Arc<Mutex<RecordingState>>,
 
+    /// Wayland portal session and its desktop-managed shortcut label.
+    #[cfg(target_os = "linux")]
+    pub portal_shortcut: Arc<Mutex<Option<crate::infrastructure::shortcuts::PortalSession>>>,
+    pub hotkey_display: Arc<Mutex<Option<String>>>,
+
     /// Last pipeline error surfaced to the UI.
     pub last_error: Arc<Mutex<Option<String>>>,
 
@@ -71,6 +76,9 @@ impl AppState {
             active_window: Arc::new(Mutex::new(None)),
             paste_target_window: Arc::new(Mutex::new(None)),
             recording: Arc::new(Mutex::new(RecordingState::Idle)),
+            #[cfg(target_os = "linux")]
+            portal_shortcut: Arc::new(Mutex::new(None)),
+            hotkey_display: Arc::new(Mutex::new(None)),
             last_error: Arc::new(Mutex::new(None)),
             level_cancel: Arc::new(AtomicBool::new(false)),
         }
